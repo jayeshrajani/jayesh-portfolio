@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "name": "Coastal island and environmental props",
+      "source": "Procedural Three.js geometry authored in this project",
+      "url": null,
+      "license": "Authored for this project",
+      "attributionRequirement": "None",
+      "localFilename": "src/components/world/Island.tsx"
+    },
+    {
+      "name": "Block character",
+      "source": "Procedural Three.js geometry authored in this project",
+      "url": null,
+      "license": "Authored for this project",
+      "attributionRequirement": "None",
+      "localFilename": "src/components/world/Player.tsx"
+    },
+    {
+      "name": "Work, Studio / Gym, and College landmarks",
+      "source": "Procedural Three.js geometry authored in this project",
+      "url": null,
+      "license": "Authored for this project",
+      "attributionRequirement": "None",
+      "localFilename": "src/components/world/locations"
+    },
+    {
+      "name": "Surf, wind, coastal bird, footstep, door, and navigation audio",
+      "source": "Procedural Web Audio synthesis authored in this project",
+      "url": null,
+      "license": "Authored for this project",
+      "attributionRequirement": "None",
+      "localFilename": "src/hooks/useAmbientAudio.ts"
+    }
+  ]
+}
