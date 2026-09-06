@@ -12,31 +12,40 @@ import { COLORS } from "@/data/theme";
 import type {
   CameraMode,
   ExperienceId,
+  InteractionId,
   InteractionTarget,
+  PlayerActivityAction,
+  PlayerActivityRequest,
+  WorkoutRequest,
   WorldLocation,
 } from "@/data/world";
 import type { MovementVector } from "@/hooks/useMovementControls";
 
 type WorldSceneProps = {
+  activityRequest: PlayerActivityRequest | null;
   cameraMode: CameraMode;
   controlsEnabled: boolean;
   focusTarget: InteractionTarget | null;
-  nearbyInteractionId: ExperienceId | null;
+  nearbyInteractionId: InteractionId | null;
   openLocationId: ExperienceId | null;
   playerPosition: RefObject<THREE.Vector3>;
   reducedMotion: boolean;
   resumeThrowRequest: number;
   touchMovement: RefObject<MovementVector>;
-  onInteract: (id: ExperienceId) => void;
+  onInteract: (id: InteractionId) => void;
+  workoutRequest: WorkoutRequest | null;
+  onActivityComplete: (action: PlayerActivityAction) => void;
   onFirstMove: () => void;
   onLocationChange: (location: WorldLocation) => void;
   onNearbyInteractionChange: (target: InteractionTarget | null) => void;
   onResumeRelease: (origin: { x: number; y: number }) => void;
   onStep: () => void;
   onTransitionComplete: (mode: CameraMode) => void;
+  onWorkoutRepComplete: (request: WorkoutRequest) => void;
 };
 
 export function WorldScene({
+  activityRequest,
   cameraMode,
   controlsEnabled,
   focusTarget,
@@ -46,6 +55,8 @@ export function WorldScene({
   reducedMotion,
   resumeThrowRequest,
   touchMovement,
+  workoutRequest,
+  onActivityComplete,
   onInteract,
   onFirstMove,
   onLocationChange,
@@ -53,6 +64,7 @@ export function WorldScene({
   onResumeRelease,
   onStep,
   onTransitionComplete,
+  onWorkoutRepComplete,
 }: WorldSceneProps) {
   return (
     <>
@@ -83,16 +95,20 @@ export function WorldScene({
         onInteract={onInteract}
       />
       <Player
+        activityRequest={activityRequest}
         enabled={controlsEnabled}
         position={playerPosition}
         reducedMotion={reducedMotion}
         resumeThrowRequest={resumeThrowRequest}
         touchMovement={touchMovement}
+        workoutRequest={workoutRequest}
+        onActivityComplete={onActivityComplete}
         onFirstMove={onFirstMove}
         onLocationChange={onLocationChange}
         onNearbyInteractionChange={onNearbyInteractionChange}
         onResumeRelease={onResumeRelease}
         onStep={onStep}
+        onWorkoutRepComplete={onWorkoutRepComplete}
       />
       <ContactShadows
         position={[0, 0.43, 0]}

@@ -8,11 +8,26 @@ export type WorldLocation = {
 };
 
 export type ExperienceId = "work" | "studio" | "college";
+export type ActivityId = "slide" | "gym";
+export type InteractionId = ExperienceId | ActivityId;
+export type PlayerActivityAction = "slide" | "gym-enter" | "gym-exit";
+export type WorkoutExercise = "squat" | "deadlift" | "bench";
+
+export type PlayerActivityRequest = {
+  requestId: number;
+  action: PlayerActivityAction;
+};
+
+export type WorkoutRequest = {
+  requestId: number;
+  exercise: WorkoutExercise;
+};
 
 export type CameraMode = "INTRO" | "FOLLOW" | "ENTER" | "EXPERIENCE" | "EXIT";
 
 export type InteractionTarget = {
-  id: ExperienceId;
+  id: InteractionId;
+  kind: "experience" | "activity";
   label: string;
   position: Point2D;
   radius: number;
@@ -54,6 +69,20 @@ export const WORLD = {
   ],
 } as const;
 
+export const ACTIVITY_POSITIONS = {
+  slide: {
+    interaction: [-9, -0.25],
+    ladderBottom: [-9, 0.56, -1.05],
+    ladderTop: [-9, 2.95, -2.05],
+    slideExit: [-9, 0.56, -5.85],
+  },
+  gym: {
+    interaction: [3.45, -5.75],
+    workout: [3.45, 0.56, -6.65],
+    exit: [3.45, 0.56, -5.5],
+  },
+} as const;
+
 export const WORLD_LOCATIONS: readonly WorldLocation[] = [
   { id: "work", label: "WORK", position: [-9, 8.9], radius: 5.7 },
   { id: "studio", label: "STUDIO / GYM", position: [0.6, -11.5], radius: 7 },
@@ -64,6 +93,7 @@ export const WORLD_LOCATIONS: readonly WorldLocation[] = [
 export const INTERACTION_TARGETS: readonly InteractionTarget[] = [
   {
     id: "work",
+    kind: "experience",
     label: "OPEN WORK",
     position: [-8.9, 9.65],
     radius: 2.4,
@@ -72,6 +102,7 @@ export const INTERACTION_TARGETS: readonly InteractionTarget[] = [
   },
   {
     id: "studio",
+    kind: "experience",
     label: "OPEN STUDIO / GYM",
     position: [-1.65, -8.15],
     radius: 2.35,
@@ -80,11 +111,30 @@ export const INTERACTION_TARGETS: readonly InteractionTarget[] = [
   },
   {
     id: "college",
+    kind: "experience",
     label: "OPEN LEARNING LOOP",
     position: [10.45, 8.9],
     radius: 2.3,
     cameraPosition: [18.5, 7.3, 13.8],
     cameraTarget: [10.8, 1.7, 5.3],
+  },
+  {
+    id: "slide",
+    kind: "activity",
+    label: "CLIMB SLIDE",
+    position: ACTIVITY_POSITIONS.slide.interaction,
+    radius: 1.9,
+    cameraPosition: [-1.5, 7.4, 6.8],
+    cameraTarget: [-9, 1.45, -3.1],
+  },
+  {
+    id: "gym",
+    kind: "activity",
+    label: "ENTER GYM",
+    position: ACTIVITY_POSITIONS.gym.interaction,
+    radius: 1.85,
+    cameraPosition: [10.8, 6.7, -0.8],
+    cameraTarget: [3.45, 1.3, -7.3],
   },
 ];
 
@@ -148,5 +198,11 @@ export function getNearbyInteraction(x: number, z: number) {
 }
 
 export function getInteractionTarget(id: ExperienceId | null) {
-  return INTERACTION_TARGETS.find((target) => target.id === id) ?? null;
+  return INTERACTION_TARGETS.find(
+    (target) => target.kind === "experience" && target.id === id,
+  ) ?? null;
+}
+
+export function isExperienceId(id: InteractionId): id is ExperienceId {
+  return id === "work" || id === "studio" || id === "college";
 }

@@ -84,6 +84,9 @@ export function PortfolioHud({
         <span className="controls-hint__keys">WASD / ARROWS</span>
         <span>MOVE</span>
         <span className="controls-hint__divider" aria-hidden="true" />
+        <span className="controls-hint__keys">SPACE</span>
+        <span>HOP</span>
+        <span className="controls-hint__divider" aria-hidden="true" />
         <span className="controls-hint__keys">ENTER / CLICK</span>
         <span>OPEN</span>
       </div>

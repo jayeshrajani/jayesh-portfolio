@@ -67,6 +67,7 @@ src/
       WorldScene.tsx           Scene graph assembly
       Island.tsx               Terrain, paths, props, and landmarks
       Player.tsx               Movement, gait, and resume throw animation
+      WorldActivities.tsx      Playground slide geometry
       CameraController.tsx     Intro/follow/experience camera state machine
       InteractiveDoor.tsx      Reusable animated door interaction
       Water.tsx                Animated ocean surface
@@ -84,6 +85,7 @@ src/
     ui/
       PortfolioHud.tsx         Brand, location, sound, and interaction prompt
       MobileControls.tsx       Touch joystick, action button, and orientation gate
+      WorkoutHud.tsx           Gym exercise controls, queue status, and rep counts
       LoadingScreen.tsx        Initial scene transition
       WebGLFallback.tsx        Canvas fallback
   data/
@@ -176,6 +178,8 @@ A landmark component owns its building geometry, material choices, decorative de
 
 All landmarks share `InteractiveDoor`. The door uses a hinge group and frame-by-frame damping to rotate smoothly. It only accepts a click while its destination is active, so clicking distant geometry cannot bypass proximity rules.
 
+The bench, rack, and barbells are rendered inside `StudioGymLocation`, so the workout remains part of the existing Studio / Gym destination rather than appearing as another world location. `WorldActivities` owns only the playground slide.
+
 ## 5. World Data, Coordinates, and Collision
 
 `src/data/world.ts` is the source of truth for world layout.
@@ -221,6 +225,8 @@ For touch devices, `PortfolioExperience` owns a second mutable movement ref. `Mo
 
 The joystick applies a small dead zone, clamps the knob to its circular travel radius, and preserves analog magnitude so a partial drag moves the character more slowly. Pointer capture keeps the gesture active when the finger leaves the joystick, while pointer up, pointer cancel, lost capture, disabled state, and component cleanup all reset movement to zero.
 
+Space increments a one-shot hop request. `Player` consumes each request once, moves the character root through a sine-eased vertical arc, and blends the arms and legs into an airborne pose. Horizontal steering remains available during the hop.
+
 Inside `Player`:
 
 1. The current camera direction is flattened onto the ground plane.
@@ -235,6 +241,12 @@ The character is assembled from primitive meshes under an articulated group hier
 The walking cycle is distance-driven rather than time-driven. Distance moved advances `gaitPhase`, which means the feet stop when the character stops and do not appear to slide while blocked. Sine waves create alternating strides, knee bends, foot correction, arm counter-swing, torso rotation, and step lift.
 
 Footstep audio is emitted each time the gait crosses the next half-cycle.
+
+### Scripted activities
+
+Slide traversal and Gym positioning use the same frame loop as walking. While one of these actions is active, free movement is disabled and a single timeline owns the player position and pose. The slide timeline eases through approach, alternating ladder steps, a short settle, seated descent, and recovery before returning control.
+
+Gym input is queue-based. Each non-repeated S, D, or B keydown appends exactly one squat, deadlift, or bench-press request. `Player` completes one smooth pose cycle at a time and reports completion to `PortfolioExperience`; only then is the corresponding rep counter incremented and the next request started. This prevents rapid key presses from restarting or blending competing animations.
 
 ## 7. Camera State Machine
 
@@ -265,6 +277,8 @@ The player calculates location and proximity continuously, but only reports a ch
 - `currentLocation`
 - `nearbyInteraction`
 - `openLocationId`
+- active slide or Gym session
+- queued workout requests and completed rep counts
 - resume throw phase and origin
 
 A destination opens only when:
@@ -296,7 +310,7 @@ The content comes from `src/data/portfolio.ts`. Contact rows use real links for 
 
 ### Studio / Gym
 
-`StudioExperience` presents athletic competition and community leadership data from `athleteProfile`, plus a direct Instagram profile card sourced from `instagramProfile`. The card links out to the real profile without embedding Instagram or inventing social metrics.
+`StudioExperience` presents athletic competition and community leadership data from `athleteProfile`, plus a direct Instagram profile card sourced from `instagramProfile`. The card links out to the real profile without embedding Instagram or inventing social metrics. In the 3D world, approaching the bench activates the Gym session: S queues squats, D queues deadlifts, B queues bench presses, and Escape exits.
 
 ### Learning Loop
 
@@ -347,6 +361,8 @@ The same DOM sheet remains mounted through launch and landing. This avoids a vis
 - movement instructions
 
 Desktop movement hints are hidden on coarse pointers. In landscape, `MobileControls` places a translucent 112px joystick at the lower left and a contextual `OPEN` button at the lower right. Both use safe-area insets so they clear device cutouts and home indicators.
+
+`WorkoutHud` appears within an active Gym session. It provides keyboard-labelled exercise buttons that are also tappable, reports the queued rep count, and maintains separate completed counts alongside the total.
 
 Portrait touch screens show `MobileOrientationGate` instead of the controls. This is a CSS media-query gate rather than a browser orientation lock, because ordinary web pages cannot reliably force device orientation. Desktop and fine-pointer devices are unaffected.
 
@@ -430,15 +446,16 @@ A reliable construction order is:
 6. Create the Canvas and static `WorldScene` lighting/fog setup.
 7. Build the extruded island, water, paths, trees, and rocks.
 8. Build each landmark from primitive meshes and add shared doors/signage.
-9. Add camera-relative keyboard and analog movement plus collision to `Player`.
+9. Add camera-relative keyboard and analog movement, hopping, and collision to `Player`.
 10. Add the distance-driven articulated walk cycle.
 11. Implement the camera mode state machine.
 12. Connect proximity, Enter/click interaction, camera transitions, and overlays in `PortfolioExperience`.
 13. Build the Work, Studio/Gym, and Learning Loop HTML experiences.
 14. Add the 3D-to-DOM resume throw only after player and camera behavior are stable.
-15. Add the landscape touch controls, safe-area spacing, and portrait orientation gate.
-16. Add procedural audio, reduced-motion behavior, loading UI, and fallbacks.
-17. Test every path, door, camera target, and overlay on desktop and a landscape touch viewport.
+15. Add scripted slide traversal and the queued Gym exercise state machine.
+16. Add the landscape touch controls, safe-area spacing, and portrait orientation gate.
+17. Add procedural audio, reduced-motion behavior, loading UI, and fallbacks.
+18. Test every path, door, activity, camera target, and overlay on desktop and a landscape touch viewport.
 
 ## 17. Adding or Moving a Destination
 

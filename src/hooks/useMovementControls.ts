@@ -20,9 +20,22 @@ export type MovementVector = {
 
 export function useMovementControls() {
   const pressedKeys = useRef(new Set<string>());
+  const hopRequest = useRef(0);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Space" && !event.repeat) {
+        const target = event.target;
+        const isInteractive = target instanceof Element && Boolean(
+          target.closest("a, button, input, select, textarea, [contenteditable='true']"),
+        );
+        if (!isInteractive) {
+          event.preventDefault();
+          hopRequest.current += 1;
+        }
+        return;
+      }
+
       if (!MOVEMENT_KEYS.has(event.code)) return;
       event.preventDefault();
       pressedKeys.current.add(event.code);
@@ -52,5 +65,5 @@ export function useMovementControls() {
     };
   }, []);
 
-  return pressedKeys;
+  return { pressedKeys, hopRequest };
 }

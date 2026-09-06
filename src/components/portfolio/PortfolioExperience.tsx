@@ -14,21 +14,45 @@ import {
   MobileOrientationGate,
 } from "@/components/ui/MobileControls";
 import { PortfolioHud } from "@/components/ui/PortfolioHud";
+import {
+  WorkoutHud,
+  type GymSession,
+  type RepCounts,
+} from "@/components/ui/WorkoutHud";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { WebGLFallback } from "@/components/ui/WebGLFallback";
 import { WorldScene } from "@/components/world/WorldScene";
 import {
   getInteractionTarget,
   getLocationAt,
+  isExperienceId,
   WORLD,
   type CameraMode,
+  type ActivityId,
   type ExperienceId,
+  type InteractionId,
   type InteractionTarget,
+  type PlayerActivityAction,
+  type PlayerActivityRequest,
+  type WorkoutExercise,
+  type WorkoutRequest,
   type WorldLocation,
 } from "@/data/world";
 import { useAmbientAudio } from "@/hooks/useAmbientAudio";
 import type { MovementVector } from "@/hooks/useMovementControls";
 import { useReducedMotionPreference } from "@/hooks/useReducedMotionPreference";
+
+const EXERCISE_KEYS: Partial<Record<KeyboardEvent["code"], WorkoutExercise>> = {
+  KeyS: "squat",
+  KeyD: "deadlift",
+  KeyB: "bench",
+};
+
+const INITIAL_REP_COUNTS: RepCounts = {
+  squat: 0,
+  deadlift: 0,
+  bench: 0,
+};
 
 export function PortfolioExperience() {
   const playerPosition = useRef(new THREE.Vector3(...WORLD.playerSpawn));
@@ -39,9 +63,16 @@ export function PortfolioExperience() {
   const [cameraMode, setCameraMode] = useState<CameraMode>("INTRO");
   const [nearbyInteraction, setNearbyInteraction] = useState<InteractionTarget | null>(null);
   const [openLocationId, setOpenLocationId] = useState<ExperienceId | null>(null);
+  const [activeActivity, setActiveActivity] = useState<ActivityId | null>(null);
+  const [gymSession, setGymSession] = useState<GymSession>("closed");
+  const [activityRequest, setActivityRequest] = useState<PlayerActivityRequest | null>(null);
+  const [workoutQueue, setWorkoutQueue] = useState<WorkoutRequest[]>([]);
+  const [repCounts, setRepCounts] = useState<RepCounts>(INITIAL_REP_COUNTS);
   const [resumeViewerPhase, setResumeViewerPhase] = useState<ResumeViewerPhase>("closed");
   const [resumeThrowOrigin, setResumeThrowOrigin] = useState<ResumeThrowOrigin>({ x: 0, y: 0 });
   const [resumeThrowRequest, setResumeThrowRequest] = useState(0);
+  const nextActivityRequest = useRef(0);
+  const nextWorkoutRequest = useRef(0);
   const [currentLocation, setCurrentLocation] = useState<WorldLocation>(() =>
     getLocationAt(WORLD.playerSpawn[0], WORLD.playerSpawn[2]),
   );
@@ -52,8 +83,46 @@ export function PortfolioExperience() {
     touchMovement.current = { horizontal, vertical };
   }, []);
 
-  const handleInteract = (id: ExperienceId) => {
+  const requestPlayerActivity = (action: PlayerActivityAction) => {
+    nextActivityRequest.current += 1;
+    setActivityRequest({ requestId: nextActivityRequest.current, action });
+  };
+
+  const queueExercise = (exercise: WorkoutExercise) => {
+    if (gymSession !== "ready") return;
+    nextWorkoutRequest.current += 1;
+    const request = { requestId: nextWorkoutRequest.current, exercise };
+    setWorkoutQueue((queue) => [...queue, request]);
+  };
+
+  const handleExitGym = () => {
+    if (gymSession !== "ready") return;
+    setWorkoutQueue([]);
+    setGymSession("exiting");
+    requestPlayerActivity("gym-exit");
+  };
+
+  const handleInteract = (id: InteractionId) => {
     if (cameraMode !== "FOLLOW" || nearbyInteraction?.id !== id) return;
+
+    if (id === "slide") {
+      audio.playEnter();
+      setHasMoved(true);
+      setActiveActivity("slide");
+      requestPlayerActivity("slide");
+      return;
+    }
+
+    if (id === "gym") {
+      audio.playEnter();
+      setHasMoved(true);
+      setActiveActivity("gym");
+      setGymSession("entering");
+      requestPlayerActivity("gym-enter");
+      return;
+    }
+
+    if (!isExperienceId(id)) return;
     audio.playDoor();
     audio.playEnter();
     setOpenLocationId(id);
@@ -61,6 +130,23 @@ export function PortfolioExperience() {
   };
 
   const handleInteractionKey = useEffectEvent((event: KeyboardEvent) => {
+    if (activeActivity === "gym") {
+      if (event.code === "Escape" && gymSession === "ready") {
+        event.preventDefault();
+        handleExitGym();
+        return;
+      }
+
+      const exercise = EXERCISE_KEYS[event.code];
+      if (exercise && !event.repeat && gymSession === "ready") {
+        event.preventDefault();
+        queueExercise(exercise);
+      }
+      return;
+    }
+
+    if (activeActivity) return;
+
     const isEnterKey = event.code === "Enter" || event.code === "NumpadEnter";
     if (!isEnterKey || event.repeat || cameraMode !== "FOLLOW" || !nearbyInteraction) return;
 
@@ -123,6 +209,33 @@ export function PortfolioExperience() {
     setNearbyInteraction(target);
   };
 
+  const handleActivityComplete = (action: PlayerActivityAction) => {
+    setActivityRequest(null);
+
+    if (action === "slide") {
+      setActiveActivity(null);
+    } else if (action === "gym-enter") {
+      setGymSession("ready");
+    } else {
+      setGymSession("closed");
+      setActiveActivity(null);
+    }
+  };
+
+  const handleWorkoutRepComplete = (request: WorkoutRequest) => {
+    setWorkoutQueue((queue) =>
+      queue[0]?.requestId === request.requestId
+        ? queue.slice(1)
+        : queue.filter(({ requestId }) => requestId !== request.requestId),
+    );
+    setRepCounts((counts) => ({
+      ...counts,
+      [request.exercise]: counts[request.exercise] + 1,
+    }));
+  };
+
+  const visibleNearbyInteraction = activeActivity ? null : nearbyInteraction;
+
   return (
     <main className="world-shell">
       <Canvas
@@ -140,15 +253,18 @@ export function PortfolioExperience() {
         aria-label="A playable miniature coastal island portfolio"
       >
         <WorldScene
+          activityRequest={activityRequest}
           cameraMode={cameraMode}
-          controlsEnabled={cameraMode === "FOLLOW"}
+          controlsEnabled={cameraMode === "FOLLOW" && !activeActivity}
           focusTarget={getInteractionTarget(openLocationId)}
-          nearbyInteractionId={nearbyInteraction?.id ?? null}
+          nearbyInteractionId={visibleNearbyInteraction?.id ?? null}
           openLocationId={openLocationId}
           playerPosition={playerPosition}
           reducedMotion={reducedMotion}
           resumeThrowRequest={resumeThrowRequest}
           touchMovement={touchMovement}
+          workoutRequest={workoutQueue[0] ?? null}
+          onActivityComplete={handleActivityComplete}
           onInteract={handleInteract}
           onFirstMove={() => setHasMoved(true)}
           onLocationChange={handleLocationChange}
@@ -156,6 +272,7 @@ export function PortfolioExperience() {
           onResumeRelease={handleResumeRelease}
           onStep={audio.playFootstep}
           onTransitionComplete={handleTransitionComplete}
+          onWorkoutRepComplete={handleWorkoutRepComplete}
         />
       </Canvas>
 
@@ -164,17 +281,25 @@ export function PortfolioExperience() {
         cameraMode={cameraMode}
         currentLocation={currentLocation}
         hasMoved={hasMoved}
-        nearbyInteraction={nearbyInteraction}
+        nearbyInteraction={visibleNearbyInteraction}
         onInteract={handleInteract}
         onToggleSound={() => void audio.toggle()}
         soundEnabled={audio.enabled}
         worldReady={worldReady}
       />
       <MobileControls
-        enabled={worldReady && cameraMode === "FOLLOW"}
-        nearbyInteraction={nearbyInteraction}
+        enabled={worldReady && cameraMode === "FOLLOW" && !activeActivity}
+        nearbyInteraction={visibleNearbyInteraction}
         onInteract={handleInteract}
         onMovementChange={handleTouchMovement}
+      />
+      <WorkoutHud
+        session={gymSession}
+        activeExercise={workoutQueue[0]?.exercise ?? null}
+        queuedReps={workoutQueue.length}
+        repCounts={repCounts}
+        onExercise={queueExercise}
+        onExit={handleExitGym}
       />
       <ExperienceOverlay
         activeExperience={cameraMode === "EXPERIENCE" ? openLocationId : null}

@@ -24,6 +24,11 @@ export function MobileControls({
   const joystick = useRef<HTMLDivElement>(null);
   const knob = useRef<HTMLDivElement>(null);
   const activePointer = useRef<number | null>(null);
+  const actionLabel = nearbyInteraction?.id === "slide"
+    ? "CLIMB"
+    : nearbyInteraction?.id === "gym"
+      ? "ENTER"
+      : "OPEN";
 
   const resetJoystick = () => {
     activePointer.current = null;
@@ -112,7 +117,7 @@ export function MobileControls({
         aria-label={nearbyInteraction ? nearbyInteraction.label : "Open nearby location"}
         onClick={() => nearbyInteraction && onInteract(nearbyInteraction.id)}
       >
-        <span>OPEN</span>
+        <span>{actionLabel}</span>
         <ArrowRightIcon aria-hidden="true" size={18} weight="bold" />
       </button>
     </div>

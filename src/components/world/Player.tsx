@@ -9,37 +9,64 @@ import * as THREE from "three";
 
 import { COLORS } from "@/data/theme";
 import {
+  ACTIVITY_POSITIONS,
   getLocationAt,
   getNearbyInteraction,
   isWalkable,
   WORLD,
   type InteractionTarget,
+  type PlayerActivityAction,
+  type PlayerActivityRequest,
+  type WorkoutExercise,
+  type WorkoutRequest,
   type WorldLocation,
 } from "@/data/world";
 import { useMovementControls, type MovementVector } from "@/hooks/useMovementControls";
 
 type PlayerProps = {
+  activityRequest: PlayerActivityRequest | null;
   enabled: boolean;
   position: RefObject<THREE.Vector3>;
   reducedMotion: boolean;
   resumeThrowRequest?: number;
   touchMovement: RefObject<MovementVector>;
+  workoutRequest: WorkoutRequest | null;
+  onActivityComplete: (action: PlayerActivityAction) => void;
   onFirstMove: () => void;
   onLocationChange: (location: WorldLocation) => void;
   onNearbyInteractionChange: (target: InteractionTarget | null) => void;
   onResumeRelease?: (origin: { x: number; y: number }) => void;
   onStep: () => void;
+  onWorkoutRepComplete: (request: WorkoutRequest) => void;
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
 const WALK_CYCLE_DISTANCE = 2.2;
 const WALK_PHASE_PER_UNIT = (Math.PI * 2) / WALK_CYCLE_DISTANCE;
+const HOP_DURATION = 0.58;
+const HOP_HEIGHT = 0.92;
+const SLIDE_DURATION = 4.35;
+const GYM_TRANSITION_DURATION = 0.82;
+const EXERCISE_DURATIONS = {
+  squat: 1.28,
+  deadlift: 1.48,
+  bench: 1.82,
+} as const satisfies Record<WorkoutExercise, number>;
 const THROW_RELEASE_TIME = 0.98;
 const THROW_DURATION = 1.58;
+const SLIDE_BOTTOM = new THREE.Vector3(...ACTIVITY_POSITIONS.slide.ladderBottom);
+const SLIDE_TOP = new THREE.Vector3(...ACTIVITY_POSITIONS.slide.ladderTop);
+const SLIDE_EXIT = new THREE.Vector3(...ACTIVITY_POSITIONS.slide.slideExit);
+const GYM_WORKOUT = new THREE.Vector3(...ACTIVITY_POSITIONS.gym.workout);
+const GYM_EXIT = new THREE.Vector3(...ACTIVITY_POSITIONS.gym.exit);
 
 function smoothstep(value: number) {
   const clamped = THREE.MathUtils.clamp(value, 0, 1);
   return clamped * clamped * (3 - 2 * clamped);
+}
+
+function segmentProgress(value: number, start: number, end: number) {
+  return THREE.MathUtils.clamp((value - start) / (end - start), 0, 1);
 }
 
 function dampAngle(current: number, target: number, amount: number) {
@@ -53,16 +80,20 @@ function lerpAngle(start: number, end: number, amount: number) {
 }
 
 export function Player({
+  activityRequest,
   enabled,
   position,
   reducedMotion,
   resumeThrowRequest = 0,
   touchMovement,
+  workoutRequest,
+  onActivityComplete,
   onFirstMove,
   onLocationChange,
   onNearbyInteractionChange,
   onResumeRelease,
   onStep,
+  onWorkoutRepComplete,
 }: PlayerProps) {
   const root = useRef<THREE.Group>(null);
   const model = useRef<THREE.Group>(null);
@@ -77,12 +108,22 @@ export function Player({
   const leftFoot = useRef<THREE.Group>(null);
   const rightFoot = useRef<THREE.Group>(null);
   const resumePaper = useRef<THREE.Group>(null);
-  const pressedKeys = useMovementControls();
+  const workoutBar = useRef<THREE.Group>(null);
+  const { pressedKeys, hopRequest } = useMovementControls();
   const hasMoved = useRef(false);
   const gaitPhase = useRef(0);
   const walkBlend = useRef(0);
   const lastStepIndex = useRef(0);
   const seenThrowRequest = useRef(resumeThrowRequest);
+  const seenHopRequest = useRef(hopRequest.current);
+  const hopElapsed = useRef(HOP_DURATION);
+  const seenActivityRequest = useRef(activityRequest?.requestId ?? 0);
+  const activeActivityAction = useRef<PlayerActivityAction | null>(null);
+  const activityElapsed = useRef(0);
+  const activityStartPosition = useRef(position.current.clone());
+  const seenWorkoutRequest = useRef(workoutRequest?.requestId ?? 0);
+  const activeWorkoutRequest = useRef<WorkoutRequest | null>(null);
+  const workoutElapsed = useRef(0);
   const throwElapsed = useRef(THROW_DURATION);
   const throwReleased = useRef(true);
   const throwStartRotation = useRef(0);
@@ -100,6 +141,137 @@ export function Player({
 
     const delta = Math.min(frameDelta, 0.05);
     const keys = pressedKeys.current;
+    const previousX = position.current.x;
+    const previousZ = position.current.z;
+
+    if (
+      activityRequest &&
+      activityRequest.requestId !== seenActivityRequest.current
+    ) {
+      seenActivityRequest.current = activityRequest.requestId;
+      activeActivityAction.current = activityRequest.action;
+      activityElapsed.current = 0;
+      activityStartPosition.current.copy(position.current);
+      activeWorkoutRequest.current = null;
+      hopElapsed.current = HOP_DURATION;
+    }
+
+    const activityForFrame = activeActivityAction.current;
+
+    if (
+      workoutRequest &&
+      !activityForFrame &&
+      workoutRequest.requestId !== seenWorkoutRequest.current
+    ) {
+      seenWorkoutRequest.current = workoutRequest.requestId;
+      activeWorkoutRequest.current = workoutRequest;
+      workoutElapsed.current = 0;
+      hopElapsed.current = HOP_DURATION;
+    }
+
+    const workoutForFrame = activeWorkoutRequest.current;
+    let activityProgress = 0;
+    let workoutProgress = 0;
+
+    if (activityForFrame) {
+      const duration = activityForFrame === "slide"
+        ? SLIDE_DURATION
+        : GYM_TRANSITION_DURATION;
+      activityElapsed.current = Math.min(
+        activityElapsed.current + delta * (reducedMotion ? 2.4 : 1),
+        duration,
+      );
+      activityProgress = activityElapsed.current / duration;
+
+      if (activityForFrame === "slide") {
+        if (activityProgress < 0.15) {
+          position.current.lerpVectors(
+            activityStartPosition.current,
+            SLIDE_BOTTOM,
+            smoothstep(activityProgress / 0.15),
+          );
+        } else if (activityProgress < 0.56) {
+          position.current.lerpVectors(
+            SLIDE_BOTTOM,
+            SLIDE_TOP,
+            smoothstep(segmentProgress(activityProgress, 0.15, 0.56)),
+          );
+        } else if (activityProgress < 0.64) {
+          position.current.copy(SLIDE_TOP);
+        } else if (activityProgress < 0.92) {
+          const slideProgress = smoothstep(segmentProgress(activityProgress, 0.64, 0.92));
+          position.current.lerpVectors(SLIDE_TOP, SLIDE_EXIT, slideProgress);
+          position.current.y += Math.sin(slideProgress * Math.PI) * 0.12;
+        } else {
+          position.current.copy(SLIDE_EXIT);
+        }
+        model.current.rotation.y = dampAngle(
+          model.current.rotation.y,
+          0,
+          1 - Math.exp(-14 * delta),
+        );
+      } else {
+        const destination = activityForFrame === "gym-enter" ? GYM_WORKOUT : GYM_EXIT;
+        position.current.lerpVectors(
+          activityStartPosition.current,
+          destination,
+          smoothstep(activityProgress),
+        );
+        model.current.rotation.y = dampAngle(
+          model.current.rotation.y,
+          activityForFrame === "gym-enter" ? 0 : Math.PI,
+          1 - Math.exp(-12 * delta),
+        );
+      }
+
+      if (activityProgress >= 1) {
+        activeActivityAction.current = null;
+        onActivityComplete(activityForFrame);
+      }
+    }
+
+    if (workoutForFrame && !activityForFrame) {
+      const duration = EXERCISE_DURATIONS[workoutForFrame.exercise];
+      workoutElapsed.current = Math.min(
+        workoutElapsed.current + delta * (reducedMotion ? 1.8 : 1),
+        duration,
+      );
+      workoutProgress = workoutElapsed.current / duration;
+      position.current.copy(GYM_WORKOUT);
+      model.current.rotation.y = dampAngle(
+        model.current.rotation.y,
+        0,
+        1 - Math.exp(-14 * delta),
+      );
+
+      if (workoutProgress >= 1) {
+        activeWorkoutRequest.current = null;
+        onWorkoutRepComplete(workoutForFrame);
+      }
+    }
+
+    if (hopRequest.current !== seenHopRequest.current) {
+      seenHopRequest.current = hopRequest.current;
+      if (
+        enabled &&
+        !activityForFrame &&
+        !workoutForFrame &&
+        hopElapsed.current >= HOP_DURATION
+      ) {
+        hopElapsed.current = 0;
+      }
+    }
+
+    const isHopping = hopElapsed.current < HOP_DURATION;
+    if (isHopping) {
+      hopElapsed.current = Math.min(hopElapsed.current + delta, HOP_DURATION);
+    }
+    const hopProgress = hopElapsed.current / HOP_DURATION;
+    const hopPose = isHopping ? Math.sin(hopProgress * Math.PI) : 0;
+    if (!activityForFrame && !workoutForFrame) {
+      position.current.y = WORLD.playerSpawn[1] + hopPose * HOP_HEIGHT;
+    }
+
     const horizontal = THREE.MathUtils.clamp(
       Number(keys.has("KeyD") || keys.has("ArrowRight")) -
         Number(keys.has("KeyA") || keys.has("ArrowLeft")) +
@@ -115,9 +287,11 @@ export function Player({
       1,
     );
     const movementAmount = Math.min(1, Math.hypot(horizontal, vertical));
-    const isTryingToMove = enabled && (horizontal !== 0 || vertical !== 0);
-    const previousX = position.current.x;
-    const previousZ = position.current.z;
+    const isTryingToMove =
+      enabled &&
+      !activityForFrame &&
+      !workoutForFrame &&
+      (horizontal !== 0 || vertical !== 0);
 
     if (isTryingToMove) {
       camera.getWorldDirection(forward.current);
@@ -180,7 +354,10 @@ export function Player({
       position.current.x - previousX,
       position.current.z - previousZ,
     );
-    const isWalking = distanceMoved > 0.0001;
+    const isWalking =
+      distanceMoved > 0.0001 &&
+      activityForFrame !== "slide" &&
+      !workoutForFrame;
 
     if (isWalking) {
       gaitPhase.current += distanceMoved * WALK_PHASE_PER_UNIT;
@@ -213,13 +390,165 @@ export function Player({
     const leftKnee = Math.max(0, Math.sin(phase + 0.22)) * 0.92 * blend;
     const rightKnee = Math.max(0, Math.sin(phase + Math.PI + 0.22)) * 0.92 * blend;
     const idle = reducedMotion ? 0 : Math.sin(clock.getElapsedTime() * 1.7) * 0.012 * (1 - blend);
-    const stepLift = reducedMotion ? 0 : Math.abs(Math.cos(phase)) * 0.075 * blend;
+    const stepLift = reducedMotion || isHopping ? 0 : Math.abs(Math.cos(phase)) * 0.075 * blend;
     const animationDamping = 1 - Math.exp(-18 * delta);
+    const throwWindup = smoothstep((throwElapsed.current - 0.2) / 0.46);
+    const throwSwing = smoothstep((throwElapsed.current - 0.66) / 0.32);
+    const throwRecovery = smoothstep((throwElapsed.current - 1.02) / 0.48);
+    let throwArmRotation = THREE.MathUtils.lerp(0, -1.28, throwWindup);
+    throwArmRotation = THREE.MathUtils.lerp(throwArmRotation, 1.42, throwSwing);
+    throwArmRotation = THREE.MathUtils.lerp(throwArmRotation, 0, throwRecovery);
+    let throwArmRoll = THREE.MathUtils.lerp(-0.05, 0.92, throwWindup);
+    throwArmRoll = THREE.MathUtils.lerp(throwArmRoll, -1.08, throwSwing);
+    throwArmRoll = THREE.MathUtils.lerp(throwArmRoll, -0.05, throwRecovery);
+    const torsoCounterRotation = isThrowing
+      ? -0.34 * (1 - throwRecovery)
+      : Math.sin(phase) * -0.075 * blend;
 
+    const modelXTarget = 0;
+    let modelYTarget = idle + stepLift;
+    let modelZTarget = 0;
+    let modelPitchTarget = 0;
+    const modelRollTarget = 0;
+    let leftLegTarget = isHopping ? -0.38 * hopPose : leftStride;
+    let rightLegTarget = isHopping ? -0.38 * hopPose : rightStride;
+    let leftKneeTarget = isHopping ? 0.72 * hopPose : -leftKnee;
+    let rightKneeTarget = isHopping ? 0.72 * hopPose : -rightKnee;
+    let leftFootTarget = -(leftStride - leftKnee) * 0.86;
+    let rightFootTarget = -(rightStride - rightKnee) * 0.86;
+    let leftArmXTarget = isThrowing
+      ? -0.24 * (1 - throwRecovery)
+      : isHopping
+        ? -0.55 * hopPose
+        : -leftStride * 0.92;
+    let rightArmXTarget = isThrowing
+      ? throwArmRotation
+      : isHopping
+        ? -0.55 * hopPose
+        : -rightStride * 0.92;
+    let leftArmZTarget = isThrowing ? 0.28 * (1 - throwRecovery) + 0.05 : 0.05;
+    let rightArmZTarget = isThrowing ? throwArmRoll : -0.05;
+    let upperBodyXTarget = isThrowing ? -0.09 * (1 - throwRecovery) : -0.055 * blend;
+    let upperBodyYTarget = torsoCounterRotation;
+    let upperBodyZTarget = Math.sin(phase) * 0.035 * blend;
+    let headYTarget = isThrowing ? 0.2 * (1 - throwRecovery) : -torsoCounterRotation * 0.62;
+    let barVisible = false;
+    let barY = 0.4;
+    let barZ = -0.42;
+
+    if (activityForFrame === "slide") {
+      const climbProgress = segmentProgress(activityProgress, 0.15, 0.56);
+      const climbEnvelope = smoothstep(segmentProgress(activityProgress, 0.12, 0.2)) *
+        (1 - smoothstep(segmentProgress(activityProgress, 0.52, 0.62)));
+      const slideEnvelope = smoothstep(segmentProgress(activityProgress, 0.55, 0.66)) *
+        (1 - smoothstep(segmentProgress(activityProgress, 0.91, 1)));
+      const climbCycle = Math.sin(climbProgress * Math.PI * 8);
+
+      modelYTarget = 0.06 * slideEnvelope;
+      modelPitchTarget = -0.16 * slideEnvelope;
+      leftLegTarget = climbCycle * 0.5 * climbEnvelope - 1.02 * slideEnvelope;
+      rightLegTarget = -climbCycle * 0.5 * climbEnvelope - 1.02 * slideEnvelope;
+      leftKneeTarget = -climbCycle * 0.38 * climbEnvelope + 0.72 * slideEnvelope;
+      rightKneeTarget = climbCycle * 0.38 * climbEnvelope + 0.72 * slideEnvelope;
+      leftFootTarget = 0.16 * slideEnvelope;
+      rightFootTarget = 0.16 * slideEnvelope;
+      leftArmXTarget = -climbCycle * 0.72 * climbEnvelope - 0.3 * slideEnvelope;
+      rightArmXTarget = climbCycle * 0.72 * climbEnvelope - 0.3 * slideEnvelope;
+      leftArmZTarget = 0.05 + 0.12 * slideEnvelope;
+      rightArmZTarget = -0.05 - 0.12 * slideEnvelope;
+      upperBodyXTarget = -0.16 * slideEnvelope - 0.08 * climbEnvelope;
+      upperBodyYTarget = 0;
+      upperBodyZTarget = 0;
+      headYTarget = 0;
+    } else if (workoutForFrame) {
+      const repPulse = Math.sin(workoutProgress * Math.PI);
+      const exerciseEnvelope = smoothstep(segmentProgress(workoutProgress, 0, 0.12)) *
+        (1 - smoothstep(segmentProgress(workoutProgress, 0.88, 1)));
+
+      upperBodyYTarget = 0;
+      upperBodyZTarget = 0;
+      headYTarget = 0;
+
+      if (workoutForFrame.exercise === "squat") {
+        modelYTarget = -0.38 * repPulse;
+        leftLegTarget = -0.72 * repPulse;
+        rightLegTarget = -0.72 * repPulse;
+        leftKneeTarget = 1.05 * repPulse;
+        rightKneeTarget = 1.05 * repPulse;
+        leftFootTarget = -0.24 * repPulse;
+        rightFootTarget = -0.24 * repPulse;
+        leftArmXTarget = -0.92 * repPulse;
+        rightArmXTarget = -0.92 * repPulse;
+        leftArmZTarget = 0.24 * repPulse + 0.05;
+        rightArmZTarget = -0.24 * repPulse - 0.05;
+        upperBodyXTarget = -0.12 * repPulse;
+      } else if (workoutForFrame.exercise === "deadlift") {
+        const liftAmount = smoothstep(segmentProgress(workoutProgress, 0.2, 0.5)) *
+          (1 - smoothstep(segmentProgress(workoutProgress, 0.62, 0.9)));
+        const bendAmount = exerciseEnvelope * (1 - liftAmount);
+
+        modelYTarget = -0.16 * bendAmount;
+        leftLegTarget = -0.3 * bendAmount;
+        rightLegTarget = -0.3 * bendAmount;
+        leftKneeTarget = 0.46 * bendAmount;
+        rightKneeTarget = 0.46 * bendAmount;
+        leftArmXTarget = -0.7 * exerciseEnvelope;
+        rightArmXTarget = -0.7 * exerciseEnvelope;
+        upperBodyXTarget = 0.72 * bendAmount;
+        barVisible = exerciseEnvelope > 0.01;
+        barY = 0.36 + liftAmount * 0.88;
+      } else {
+        const benchBlend = smoothstep(segmentProgress(workoutProgress, 0.02, 0.2)) *
+          (1 - smoothstep(segmentProgress(workoutProgress, 0.8, 1)));
+        const pressAmount = smoothstep(segmentProgress(workoutProgress, 0.25, 0.5)) *
+          (1 - smoothstep(segmentProgress(workoutProgress, 0.58, 0.8)));
+
+        modelYTarget = THREE.MathUtils.lerp(modelYTarget, 0.72, benchBlend);
+        modelZTarget = -0.12 * benchBlend;
+        modelPitchTarget = -1.5 * benchBlend;
+        leftLegTarget = -0.08 * benchBlend;
+        rightLegTarget = -0.08 * benchBlend;
+        leftKneeTarget = 0.12 * benchBlend;
+        rightKneeTarget = 0.12 * benchBlend;
+        leftArmXTarget = (-1.12 + pressAmount * 0.64) * benchBlend;
+        rightArmXTarget = (-1.12 + pressAmount * 0.64) * benchBlend;
+        leftArmZTarget = 0.08 + 0.18 * benchBlend;
+        rightArmZTarget = -0.08 - 0.18 * benchBlend;
+        upperBodyXTarget = 0;
+        barVisible = benchBlend > 0.01;
+        barY = 1.22 + pressAmount * 0.48;
+        barZ = -0.32;
+      }
+    }
+
+    model.current.position.x = THREE.MathUtils.damp(
+      model.current.position.x,
+      modelXTarget,
+      16,
+      delta,
+    );
     model.current.position.y = THREE.MathUtils.damp(
       model.current.position.y,
-      idle + stepLift,
+      modelYTarget,
       16,
+      delta,
+    );
+    model.current.position.z = THREE.MathUtils.damp(
+      model.current.position.z,
+      modelZTarget,
+      16,
+      delta,
+    );
+    model.current.rotation.x = THREE.MathUtils.damp(
+      model.current.rotation.x,
+      modelPitchTarget,
+      15,
+      delta,
+    );
+    model.current.rotation.z = THREE.MathUtils.damp(
+      model.current.rotation.z,
+      modelRollTarget,
+      15,
       delta,
     );
 
@@ -237,86 +566,81 @@ export function Player({
     ) {
       leftLeg.current.rotation.x = THREE.MathUtils.lerp(
         leftLeg.current.rotation.x,
-        leftStride,
+        leftLegTarget,
         animationDamping,
       );
       rightLeg.current.rotation.x = THREE.MathUtils.lerp(
         rightLeg.current.rotation.x,
-        rightStride,
+        rightLegTarget,
         animationDamping,
       );
       leftLowerLeg.current.rotation.x = THREE.MathUtils.lerp(
         leftLowerLeg.current.rotation.x,
-        -leftKnee,
+        leftKneeTarget,
         animationDamping,
       );
       rightLowerLeg.current.rotation.x = THREE.MathUtils.lerp(
         rightLowerLeg.current.rotation.x,
-        -rightKnee,
+        rightKneeTarget,
         animationDamping,
       );
       leftFoot.current.rotation.x = THREE.MathUtils.lerp(
         leftFoot.current.rotation.x,
-        -(leftStride - leftKnee) * 0.86,
+        leftFootTarget,
         animationDamping,
       );
       rightFoot.current.rotation.x = THREE.MathUtils.lerp(
         rightFoot.current.rotation.x,
-        -(rightStride - rightKnee) * 0.86,
+        rightFootTarget,
         animationDamping,
       );
-      const throwWindup = smoothstep((throwElapsed.current - 0.2) / 0.46);
-      const throwSwing = smoothstep((throwElapsed.current - 0.66) / 0.32);
-      const throwRecovery = smoothstep((throwElapsed.current - 1.02) / 0.48);
-      let throwArmRotation = THREE.MathUtils.lerp(0, -1.28, throwWindup);
-      throwArmRotation = THREE.MathUtils.lerp(throwArmRotation, 1.42, throwSwing);
-      throwArmRotation = THREE.MathUtils.lerp(throwArmRotation, 0, throwRecovery);
-      let throwArmRoll = THREE.MathUtils.lerp(-0.05, 0.92, throwWindup);
-      throwArmRoll = THREE.MathUtils.lerp(throwArmRoll, -1.08, throwSwing);
-      throwArmRoll = THREE.MathUtils.lerp(throwArmRoll, -0.05, throwRecovery);
-      const torsoCounterRotation = isThrowing ? -0.34 * (1 - throwRecovery) : Math.sin(phase) * -0.075 * blend;
 
       leftArm.current.rotation.x = THREE.MathUtils.lerp(
         leftArm.current.rotation.x,
-        isThrowing ? -0.24 * (1 - throwRecovery) : -leftStride * 0.92,
+        leftArmXTarget,
         animationDamping,
       );
       rightArm.current.rotation.x = THREE.MathUtils.lerp(
         rightArm.current.rotation.x,
-        isThrowing ? throwArmRotation : -rightStride * 0.92,
+        rightArmXTarget,
         animationDamping,
       );
       leftArm.current.rotation.z = THREE.MathUtils.lerp(
         leftArm.current.rotation.z,
-        isThrowing ? 0.28 * (1 - throwRecovery) + 0.05 : 0.05,
+        leftArmZTarget,
         animationDamping,
       );
       rightArm.current.rotation.z = THREE.MathUtils.lerp(
         rightArm.current.rotation.z,
-        isThrowing ? throwArmRoll : -0.05,
+        rightArmZTarget,
         animationDamping,
       );
 
       upperBody.current.rotation.x = THREE.MathUtils.lerp(
         upperBody.current.rotation.x,
-        isThrowing ? -0.09 * (1 - throwRecovery) : -0.055 * blend,
+        upperBodyXTarget,
         animationDamping,
       );
       upperBody.current.rotation.y = THREE.MathUtils.lerp(
         upperBody.current.rotation.y,
-        torsoCounterRotation,
+        upperBodyYTarget,
         animationDamping,
       );
       upperBody.current.rotation.z = THREE.MathUtils.lerp(
         upperBody.current.rotation.z,
-        Math.sin(phase) * 0.035 * blend,
+        upperBodyZTarget,
         animationDamping,
       );
       head.current.rotation.y = THREE.MathUtils.lerp(
         head.current.rotation.y,
-        isThrowing ? 0.2 * (1 - throwRecovery) : -torsoCounterRotation * 0.62,
+        headYTarget,
         animationDamping,
       );
+    }
+
+    if (workoutBar.current) {
+      workoutBar.current.visible = barVisible;
+      workoutBar.current.position.set(0, barY, barZ);
     }
 
     if (resumePaper.current) {
@@ -448,6 +772,19 @@ export function Player({
               <meshStandardMaterial color={COLORS.charcoal} />
             </mesh>
           </group>
+        </group>
+
+        <group ref={workoutBar} visible={false}>
+          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+            <cylinderGeometry args={[0.045, 0.045, 1.82, 10]} />
+            <meshStandardMaterial color={COLORS.offWhite} metalness={0.4} roughness={0.4} />
+          </mesh>
+          {[-0.96, 0.96].map((offsetX) => (
+            <mesh key={offsetX} position={[offsetX, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+              <cylinderGeometry args={[0.2, 0.2, 0.12, 12]} />
+              <meshStandardMaterial color={COLORS.accent} roughness={0.74} flatShading />
+            </mesh>
+          ))}
         </group>
       </group>
     </group>

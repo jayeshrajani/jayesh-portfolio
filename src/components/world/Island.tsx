@@ -4,10 +4,16 @@ import { useMemo } from "react";
 import * as THREE from "three";
 
 import { COLORS } from "@/data/theme";
-import { LANDMARK_POSITIONS, WORLD, type ExperienceId } from "@/data/world";
+import {
+  LANDMARK_POSITIONS,
+  WORLD,
+  type ExperienceId,
+  type InteractionId,
+} from "@/data/world";
 import { CollegeLocation } from "@/components/world/locations/CollegeLocation";
 import { StudioGymLocation } from "@/components/world/locations/StudioGymLocation";
 import { WorkLocation } from "@/components/world/locations/WorkLocation";
+import { PlaygroundSlide } from "@/components/world/WorldActivities";
 
 type PathProps = {
   points: readonly (readonly [number, number])[];
@@ -97,7 +103,7 @@ function Tree({ x, z, scale }: { x: number; z: number; scale: number }) {
 }
 
 type IslandProps = {
-  nearbyInteractionId: ExperienceId | null;
+  nearbyInteractionId: InteractionId | null;
   openLocationId: ExperienceId | null;
   onInteract: (id: ExperienceId) => void;
 };
@@ -193,6 +199,7 @@ export function Island({ nearbyInteractionId, openLocationId, onInteract }: Isla
         doorOpen={openLocationId === "college"}
         onInteract={() => onInteract("college")}
       />
+      <PlaygroundSlide />
 
     </group>
   );

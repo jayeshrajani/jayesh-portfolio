@@ -7,11 +7,13 @@ A software engineering portfolio built as a playable miniature coastal island. V
 ## Current Build
 
 - Procedural low-poly island, shoreline, water, paths, trees, rocks, and three landmarks
-- Blocky animated player with WASD, arrow-key, and analog joystick controls
+- Blocky animated player with WASD, arrow-key, analog joystick, and Space-to-hop controls
 - Smooth elevated follow camera and cinematic location transitions
 - Boundary and building collision
 - Proximity-aware doors opened by Enter, click, or the contextual mobile action
 - Floating labels identify Work, Studio / Gym, and Learning Loop
+- Interactive playground slide with a scripted climb and descent
+- Gym bench with queued squat, deadlift, and bench-press reps plus counters
 - In-world Work, Studio / Gym, and Learning Loop presentations
 - Linked Instagram profile in the Studio / Gym experience
 - Resume-backed experience, project, education, and contact content
