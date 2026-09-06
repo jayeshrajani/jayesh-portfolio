@@ -46,11 +46,11 @@ const WALK_PHASE_PER_UNIT = (Math.PI * 2) / WALK_CYCLE_DISTANCE;
 const HOP_DURATION = 0.58;
 const HOP_HEIGHT = 0.92;
 const SLIDE_DURATION = 4.35;
-const GYM_TRANSITION_DURATION = 0.82;
+const GYM_TRANSITION_DURATION = 1.35;
 const EXERCISE_DURATIONS = {
-  squat: 1.28,
-  deadlift: 1.48,
-  bench: 1.82,
+  squat: 1.5,
+  deadlift: 1.75,
+  bench: 2.05,
 } as const satisfies Record<WorkoutExercise, number>;
 const THROW_RELEASE_TIME = 0.98;
 const THROW_DURATION = 1.58;
@@ -67,6 +67,11 @@ function smoothstep(value: number) {
 
 function segmentProgress(value: number, start: number, end: number) {
   return THREE.MathUtils.clamp((value - start) / (end - start), 0, 1);
+}
+
+function smoothPulse(value: number) {
+  const clamped = THREE.MathUtils.clamp(value, 0, 1);
+  return 0.5 - Math.cos(clamped * Math.PI * 2) * 0.5;
 }
 
 function dampAngle(current: number, target: number, amount: number) {
@@ -108,7 +113,6 @@ export function Player({
   const leftFoot = useRef<THREE.Group>(null);
   const rightFoot = useRef<THREE.Group>(null);
   const resumePaper = useRef<THREE.Group>(null);
-  const workoutBar = useRef<THREE.Group>(null);
   const { pressedKeys, hopRequest } = useMovementControls();
   const hasMoved = useRef(false);
   const gaitPhase = useRef(0);
@@ -432,9 +436,6 @@ export function Player({
     let upperBodyYTarget = torsoCounterRotation;
     let upperBodyZTarget = Math.sin(phase) * 0.035 * blend;
     let headYTarget = isThrowing ? 0.2 * (1 - throwRecovery) : -torsoCounterRotation * 0.62;
-    let barVisible = false;
-    let barY = 0.4;
-    let barZ = -0.42;
 
     if (activityForFrame === "slide") {
       const climbProgress = segmentProgress(activityProgress, 0.15, 0.56);
@@ -461,7 +462,6 @@ export function Player({
       upperBodyZTarget = 0;
       headYTarget = 0;
     } else if (workoutForFrame) {
-      const repPulse = Math.sin(workoutProgress * Math.PI);
       const exerciseEnvelope = smoothstep(segmentProgress(workoutProgress, 0, 0.12)) *
         (1 - smoothstep(segmentProgress(workoutProgress, 0.88, 1)));
 
@@ -470,18 +470,20 @@ export function Player({
       headYTarget = 0;
 
       if (workoutForFrame.exercise === "squat") {
-        modelYTarget = -0.38 * repPulse;
-        leftLegTarget = -0.72 * repPulse;
-        rightLegTarget = -0.72 * repPulse;
-        leftKneeTarget = 1.05 * repPulse;
-        rightKneeTarget = 1.05 * repPulse;
-        leftFootTarget = -0.24 * repPulse;
-        rightFootTarget = -0.24 * repPulse;
-        leftArmXTarget = -0.92 * repPulse;
-        rightArmXTarget = -0.92 * repPulse;
-        leftArmZTarget = 0.24 * repPulse + 0.05;
-        rightArmZTarget = -0.24 * repPulse - 0.05;
-        upperBodyXTarget = -0.12 * repPulse;
+        const squatDepth = smoothPulse(workoutProgress);
+
+        modelYTarget = -0.38 * squatDepth;
+        leftLegTarget = -0.72 * squatDepth;
+        rightLegTarget = -0.72 * squatDepth;
+        leftKneeTarget = 1.05 * squatDepth;
+        rightKneeTarget = 1.05 * squatDepth;
+        leftFootTarget = -0.24 * squatDepth;
+        rightFootTarget = -0.24 * squatDepth;
+        leftArmXTarget = -0.92 * squatDepth;
+        rightArmXTarget = -0.92 * squatDepth;
+        leftArmZTarget = 0.24 * squatDepth + 0.05;
+        rightArmZTarget = -0.24 * squatDepth - 0.05;
+        upperBodyXTarget = -0.12 * squatDepth;
       } else if (workoutForFrame.exercise === "deadlift") {
         const liftAmount = smoothstep(segmentProgress(workoutProgress, 0.2, 0.5)) *
           (1 - smoothstep(segmentProgress(workoutProgress, 0.62, 0.9)));
@@ -495,8 +497,6 @@ export function Player({
         leftArmXTarget = -0.7 * exerciseEnvelope;
         rightArmXTarget = -0.7 * exerciseEnvelope;
         upperBodyXTarget = 0.72 * bendAmount;
-        barVisible = exerciseEnvelope > 0.01;
-        barY = 0.36 + liftAmount * 0.88;
       } else {
         const benchBlend = smoothstep(segmentProgress(workoutProgress, 0.02, 0.2)) *
           (1 - smoothstep(segmentProgress(workoutProgress, 0.8, 1)));
@@ -515,9 +515,6 @@ export function Player({
         leftArmZTarget = 0.08 + 0.18 * benchBlend;
         rightArmZTarget = -0.08 - 0.18 * benchBlend;
         upperBodyXTarget = 0;
-        barVisible = benchBlend > 0.01;
-        barY = 1.22 + pressAmount * 0.48;
-        barZ = -0.32;
       }
     }
 
@@ -636,11 +633,6 @@ export function Player({
         headYTarget,
         animationDamping,
       );
-    }
-
-    if (workoutBar.current) {
-      workoutBar.current.visible = barVisible;
-      workoutBar.current.position.set(0, barY, barZ);
     }
 
     if (resumePaper.current) {
@@ -774,18 +766,6 @@ export function Player({
           </group>
         </group>
 
-        <group ref={workoutBar} visible={false}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.045, 0.045, 1.82, 10]} />
-            <meshStandardMaterial color={COLORS.offWhite} metalness={0.4} roughness={0.4} />
-          </mesh>
-          {[-0.96, 0.96].map((offsetX) => (
-            <mesh key={offsetX} position={[offsetX, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[0.2, 0.2, 0.12, 12]} />
-              <meshStandardMaterial color={COLORS.accent} roughness={0.74} flatShading />
-            </mesh>
-          ))}
-        </group>
       </group>
     </group>
   );

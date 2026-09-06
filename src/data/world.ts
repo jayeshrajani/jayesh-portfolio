@@ -77,9 +77,9 @@ export const ACTIVITY_POSITIONS = {
     slideExit: [-9, 0.56, -5.85],
   },
   gym: {
-    interaction: [3.45, -5.75],
-    workout: [3.45, 0.56, -6.65],
-    exit: [3.45, 0.56, -5.5],
+    interaction: [3.1, -8],
+    workout: [3.1, 0.86, -11.2],
+    exit: [3.1, 0.56, -8],
   },
 } as const;
 
@@ -134,7 +134,7 @@ export const INTERACTION_TARGETS: readonly InteractionTarget[] = [
     position: ACTIVITY_POSITIONS.gym.interaction,
     radius: 1.85,
     cameraPosition: [10.8, 6.7, -0.8],
-    cameraTarget: [3.45, 1.3, -7.3],
+    cameraTarget: [3.1, 1.3, -11.6],
   },
 ];
 

@@ -15,15 +15,6 @@ const FRAME_POSTS = [
 const GYM_BENCH_X = ACTIVITY_POSITIONS.gym.workout[0] - LANDMARK_POSITIONS.studio[0];
 const GYM_BENCH_Z = ACTIVITY_POSITIONS.gym.workout[2] - LANDMARK_POSITIONS.studio[1];
 
-function Plate({ x, y, z }: { x: number; y: number; z: number }) {
-  return (
-    <mesh position={[x, y, z]} rotation={[0, 0, Math.PI / 2]} castShadow>
-      <cylinderGeometry args={[0.34, 0.34, 0.16, 12]} />
-      <meshStandardMaterial color={COLORS.accent} roughness={0.76} flatShading />
-    </mesh>
-  );
-}
-
 type StudioGymLocationProps = {
   doorActive: boolean;
   doorOpen: boolean;
@@ -92,24 +83,11 @@ export function StudioGymLocation({
           <boxGeometry args={[3.78, 0.18, 0.18]} />
           <meshStandardMaterial color={COLORS.concreteLight} roughness={0.7} />
         </mesh>
-
-        <group position={[0, 0.18, 0.2]}>
-          <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.08, 0.08, 2.5, 10]} />
-            <meshStandardMaterial color={COLORS.charcoal} roughness={0.6} />
-          </mesh>
-          {[-1.45, 1.45].map((x) => (
-            <mesh key={x} position={[x, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-              <cylinderGeometry args={[0.32, 0.32, 0.16, 12]} />
-              <meshStandardMaterial color={COLORS.accent} roughness={0.72} />
-            </mesh>
-          ))}
-        </group>
       </group>
 
-      <group position={[GYM_BENCH_X, 0, GYM_BENCH_Z]}>
+      <group position={[GYM_BENCH_X, 0.3, GYM_BENCH_Z]}>
         <mesh position={[0, 0.11, -0.85]} receiveShadow>
-          <boxGeometry args={[4.6, 0.12, 3.6]} />
+          <boxGeometry args={[3.25, 0.12, 3.5]} />
           <meshStandardMaterial color={COLORS.charcoal} roughness={0.96} />
         </mesh>
 
@@ -137,20 +115,6 @@ export function StudioGymLocation({
             </mesh>
           </group>
         ))}
-
-        <mesh position={[0, 1.78, -1.48]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.07, 0.07, 2.8, 10]} />
-          <meshStandardMaterial color={COLORS.offWhite} metalness={0.35} roughness={0.42} />
-        </mesh>
-        <Plate x={-1.5} y={1.78} z={-1.48} />
-        <Plate x={1.5} y={1.78} z={-1.48} />
-
-        <mesh position={[0, 0.39, 0.48]} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.065, 0.065, 2.75, 10]} />
-          <meshStandardMaterial color={COLORS.offWhite} metalness={0.35} roughness={0.42} />
-        </mesh>
-        <Plate x={-1.48} y={0.39} z={0.48} />
-        <Plate x={1.48} y={0.39} z={0.48} />
       </group>
     </group>
   );
