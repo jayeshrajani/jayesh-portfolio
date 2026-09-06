@@ -58,6 +58,7 @@ const SLIDE_BOTTOM = new THREE.Vector3(...ACTIVITY_POSITIONS.slide.ladderBottom)
 const SLIDE_TOP = new THREE.Vector3(...ACTIVITY_POSITIONS.slide.ladderTop);
 const SLIDE_EXIT = new THREE.Vector3(...ACTIVITY_POSITIONS.slide.slideExit);
 const GYM_WORKOUT = new THREE.Vector3(...ACTIVITY_POSITIONS.gym.workout);
+const GYM_BAR_RACK = new THREE.Vector3(...ACTIVITY_POSITIONS.gym.barRack);
 const GYM_EXIT = new THREE.Vector3(...ACTIVITY_POSITIONS.gym.exit);
 
 function smoothstep(value: number) {
@@ -112,6 +113,9 @@ export function Player({
   const rightLowerLeg = useRef<THREE.Group>(null);
   const leftFoot = useRef<THREE.Group>(null);
   const rightFoot = useRef<THREE.Group>(null);
+  const leftHand = useRef<THREE.Group>(null);
+  const rightHand = useRef<THREE.Group>(null);
+  const workoutBar = useRef<THREE.Group>(null);
   const resumePaper = useRef<THREE.Group>(null);
   const { pressedKeys, hopRequest } = useMovementControls();
   const hasMoved = useRef(false);
@@ -139,6 +143,8 @@ export function Player({
   const forward = useRef(new THREE.Vector3());
   const right = useRef(new THREE.Vector3());
   const candidate = useRef(new THREE.Vector3());
+  const leftGripPosition = useRef(new THREE.Vector3());
+  const rightGripPosition = useRef(new THREE.Vector3());
 
   useFrame(({ camera, clock, size }, frameDelta) => {
     if (!root.current || !model.current) return;
@@ -485,23 +491,47 @@ export function Player({
         rightArmZTarget = -0.24 * squatDepth - 0.05;
         upperBodyXTarget = -0.12 * squatDepth;
       } else if (workoutForFrame.exercise === "deadlift") {
-        const liftAmount = smoothstep(segmentProgress(workoutProgress, 0.2, 0.5)) *
-          (1 - smoothstep(segmentProgress(workoutProgress, 0.62, 0.9)));
-        const bendAmount = exerciseEnvelope * (1 - liftAmount);
+        const floorTransfer = smoothstep(segmentProgress(workoutProgress, 0.18, 0.34)) *
+          (1 - smoothstep(segmentProgress(workoutProgress, 0.72, 0.88)));
+        const liftAmount = smoothstep(segmentProgress(workoutProgress, 0.36, 0.52)) *
+          (1 - smoothstep(segmentProgress(workoutProgress, 0.58, 0.72)));
+        const deadliftDepth = floorTransfer * (1 - liftAmount);
+        const rackArmRotation = -1.36;
+        const floorArmRotation = 0.5;
+        const transferredArmRotation = THREE.MathUtils.lerp(
+          rackArmRotation,
+          floorArmRotation,
+          floorTransfer,
+        );
+        const rackTorsoRotation = -0.8;
+        const floorTorsoRotation = -0.85;
+        const transferredTorsoRotation = THREE.MathUtils.lerp(
+          rackTorsoRotation,
+          floorTorsoRotation,
+          floorTransfer,
+        );
 
-        modelYTarget = -0.16 * bendAmount;
-        leftLegTarget = -0.3 * bendAmount;
-        rightLegTarget = -0.3 * bendAmount;
-        leftKneeTarget = 0.46 * bendAmount;
-        rightKneeTarget = 0.46 * bendAmount;
-        leftArmXTarget = -0.7 * exerciseEnvelope;
-        rightArmXTarget = -0.7 * exerciseEnvelope;
-        upperBodyXTarget = 0.72 * bendAmount;
+        modelZTarget = THREE.MathUtils.lerp(-0.76, -0.3, floorTransfer) * exerciseEnvelope;
+        leftLegTarget = -0.3 * deadliftDepth;
+        rightLegTarget = -0.3 * deadliftDepth;
+        leftKneeTarget = 0.46 * deadliftDepth;
+        rightKneeTarget = 0.46 * deadliftDepth;
+        leftArmXTarget = THREE.MathUtils.lerp(
+          transferredArmRotation,
+          0,
+          liftAmount,
+        ) * exerciseEnvelope;
+        rightArmXTarget = leftArmXTarget;
+        upperBodyXTarget = THREE.MathUtils.lerp(
+          transferredTorsoRotation,
+          0,
+          liftAmount,
+        ) * exerciseEnvelope;
       } else {
         const benchBlend = smoothstep(segmentProgress(workoutProgress, 0.02, 0.2)) *
           (1 - smoothstep(segmentProgress(workoutProgress, 0.8, 1)));
-        const pressAmount = smoothstep(segmentProgress(workoutProgress, 0.25, 0.5)) *
-          (1 - smoothstep(segmentProgress(workoutProgress, 0.58, 0.8)));
+        const lowerAmount = smoothstep(segmentProgress(workoutProgress, 0.22, 0.4)) *
+          (1 - smoothstep(segmentProgress(workoutProgress, 0.58, 0.78)));
 
         modelYTarget = THREE.MathUtils.lerp(modelYTarget, 0.72, benchBlend);
         modelZTarget = -0.12 * benchBlend;
@@ -510,8 +540,8 @@ export function Player({
         rightLegTarget = -0.08 * benchBlend;
         leftKneeTarget = 0.12 * benchBlend;
         rightKneeTarget = 0.12 * benchBlend;
-        leftArmXTarget = (-1.12 + pressAmount * 0.64) * benchBlend;
-        rightArmXTarget = (-1.12 + pressAmount * 0.64) * benchBlend;
+        leftArmXTarget = THREE.MathUtils.lerp(-1.12, 0, lowerAmount) * benchBlend;
+        rightArmXTarget = leftArmXTarget;
         leftArmZTarget = 0.08 + 0.18 * benchBlend;
         rightArmZTarget = -0.08 - 0.18 * benchBlend;
         upperBodyXTarget = 0;
@@ -635,6 +665,26 @@ export function Player({
       );
     }
 
+    if (workoutBar.current) {
+      const grippingBar = workoutForFrame?.exercise === "deadlift"
+        ? workoutProgress >= 0.18 && workoutProgress <= 0.88
+        : workoutForFrame?.exercise === "bench"
+          ? workoutProgress >= 0.2 && workoutProgress <= 0.8
+          : false;
+
+      if (grippingBar && leftHand.current && rightHand.current) {
+        root.current.updateWorldMatrix(true, true);
+        leftHand.current.getWorldPosition(leftGripPosition.current);
+        rightHand.current.getWorldPosition(rightGripPosition.current);
+        workoutBar.current.position
+          .copy(leftGripPosition.current)
+          .add(rightGripPosition.current)
+          .multiplyScalar(0.5);
+      } else {
+        workoutBar.current.position.copy(GYM_BAR_RACK);
+      }
+    }
+
     if (resumePaper.current) {
       resumePaper.current.visible = isThrowing && !throwReleased.current;
     }
@@ -670,8 +720,9 @@ export function Player({
   });
 
   return (
-    <group ref={root} position={position.current.toArray()}>
-      <group ref={model}>
+    <>
+      <group ref={root} position={position.current.toArray()}>
+        <group ref={model}>
         <group ref={leftLeg} position={[-0.19, 0.75, 0]}>
           <mesh position={[0, -0.17, 0]} castShadow>
             <boxGeometry args={[0.27, 0.34, 0.3]} />
@@ -720,12 +771,14 @@ export function Player({
               <boxGeometry args={[0.22, 0.68, 0.24]} />
               <meshStandardMaterial color={COLORS.concreteLight} roughness={0.9} />
             </mesh>
+            <group ref={leftHand} position={[0, -0.66, 0]} />
           </group>
           <group ref={rightArm} position={[0.48, 1.45, 0]} rotation={[0, 0, -0.05]}>
             <mesh position={[0, -0.32, 0]} castShadow>
               <boxGeometry args={[0.22, 0.68, 0.24]} />
               <meshStandardMaterial color={COLORS.concreteLight} roughness={0.9} />
             </mesh>
+            <group ref={rightHand} position={[0, -0.66, 0]} />
             <group ref={resumePaper} position={[0, -0.7, -0.04]} rotation={[0, 0, -0.08]} visible={false}>
               <mesh castShadow>
                 <boxGeometry args={[0.38, 0.5, 0.025]} />
@@ -766,7 +819,25 @@ export function Player({
           </group>
         </group>
 
+        </group>
       </group>
-    </group>
+      <group ref={workoutBar} position={GYM_BAR_RACK.toArray()}>
+        <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.06, 0.06, 2.8, 10]} />
+          <meshStandardMaterial color={COLORS.offWhite} metalness={0.35} roughness={0.42} />
+        </mesh>
+        {[-1.3, 1.3].map((offsetX) => (
+          <mesh
+            key={offsetX}
+            position={[offsetX, 0, 0]}
+            rotation={[0, 0, Math.PI / 2]}
+            castShadow
+          >
+            <cylinderGeometry args={[0.3, 0.3, 0.14, 12]} />
+            <meshStandardMaterial color={COLORS.accent} roughness={0.76} flatShading />
+          </mesh>
+        ))}
+      </group>
+    </>
   );
 }

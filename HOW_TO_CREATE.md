@@ -178,7 +178,7 @@ A landmark component owns its building geometry, material choices, decorative de
 
 All landmarks share `InteractiveDoor`. The door uses a hinge group and frame-by-frame damping to rotate smoothly. It only accepts a click while its destination is active, so clicking distant geometry cannot bypass proximity rules.
 
-The bench, black mat, and white training frame are rendered inside `StudioGymLocation`, so the workout remains part of the existing Studio / Gym destination rather than appearing as another world location. `WorldActivities` owns only the playground slide.
+The bench, black mat, and white training frame are rendered inside `StudioGymLocation`, so the workout remains part of the existing Studio / Gym destination rather than appearing as another world location. `Player` owns the single world-space barbell and places it at the rack or directly between its hand anchors during a lift. `WorldActivities` owns only the playground slide.
 
 ## 5. World Data, Coordinates, and Collision
 

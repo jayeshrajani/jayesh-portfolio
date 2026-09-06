@@ -79,6 +79,7 @@ export const ACTIVITY_POSITIONS = {
   gym: {
     interaction: [3.1, -8],
     workout: [3.1, 0.86, -11.2],
+    barRack: [3.1, 2.24, -12.45],
     exit: [3.1, 0.56, -8],
   },
 } as const;
