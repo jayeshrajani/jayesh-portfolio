@@ -13,6 +13,11 @@ const MOVEMENT_KEYS = new Set([
   "ArrowRight",
 ]);
 
+export type MovementVector = {
+  horizontal: number;
+  vertical: number;
+};
+
 export function useMovementControls() {
   const pressedKeys = useRef(new Set<string>());
 

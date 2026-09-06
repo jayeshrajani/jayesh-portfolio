@@ -16,13 +16,14 @@ import {
   type InteractionTarget,
   type WorldLocation,
 } from "@/data/world";
-import { useMovementControls } from "@/hooks/useMovementControls";
+import { useMovementControls, type MovementVector } from "@/hooks/useMovementControls";
 
 type PlayerProps = {
   enabled: boolean;
   position: RefObject<THREE.Vector3>;
   reducedMotion: boolean;
   resumeThrowRequest?: number;
+  touchMovement: RefObject<MovementVector>;
   onFirstMove: () => void;
   onLocationChange: (location: WorldLocation) => void;
   onNearbyInteractionChange: (target: InteractionTarget | null) => void;
@@ -56,6 +57,7 @@ export function Player({
   position,
   reducedMotion,
   resumeThrowRequest = 0,
+  touchMovement,
   onFirstMove,
   onLocationChange,
   onNearbyInteractionChange,
@@ -98,10 +100,21 @@ export function Player({
 
     const delta = Math.min(frameDelta, 0.05);
     const keys = pressedKeys.current;
-    const horizontal = Number(keys.has("KeyD") || keys.has("ArrowRight")) -
-      Number(keys.has("KeyA") || keys.has("ArrowLeft"));
-    const vertical = Number(keys.has("KeyW") || keys.has("ArrowUp")) -
-      Number(keys.has("KeyS") || keys.has("ArrowDown"));
+    const horizontal = THREE.MathUtils.clamp(
+      Number(keys.has("KeyD") || keys.has("ArrowRight")) -
+        Number(keys.has("KeyA") || keys.has("ArrowLeft")) +
+        touchMovement.current.horizontal,
+      -1,
+      1,
+    );
+    const vertical = THREE.MathUtils.clamp(
+      Number(keys.has("KeyW") || keys.has("ArrowUp")) -
+        Number(keys.has("KeyS") || keys.has("ArrowDown")) +
+        touchMovement.current.vertical,
+      -1,
+      1,
+    );
+    const movementAmount = Math.min(1, Math.hypot(horizontal, vertical));
     const isTryingToMove = enabled && (horizontal !== 0 || vertical !== 0);
     const previousX = position.current.x;
     const previousZ = position.current.z;
@@ -117,7 +130,9 @@ export function Player({
         .addScaledVector(right.current, horizontal)
         .normalize();
 
-      candidate.current.copy(position.current).addScaledVector(direction.current, WORLD.playerSpeed * delta);
+      candidate.current
+        .copy(position.current)
+        .addScaledVector(direction.current, WORLD.playerSpeed * movementAmount * delta);
 
       if (isWalkable(candidate.current.x, position.current.z)) {
         position.current.x = candidate.current.x;

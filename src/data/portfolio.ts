@@ -76,6 +76,13 @@ export const athleteProfile = {
 	},
 } as const;
 
+export const instagramProfile = {
+	handle: "@jayeshrajanii",
+	href: "https://www.instagram.com/jayeshrajanii/",
+	summary: "Training updates and a little life outside work.",
+	themes: ["TRAINING", "SPORT", "LIFE"],
+} as const;
+
 export const education = {
 	institution: "Vellore Institute of Technology, Vellore",
 	degree: "B.Tech, Computer Science & Engineering",

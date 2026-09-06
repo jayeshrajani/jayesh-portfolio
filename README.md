@@ -1,20 +1,22 @@
 # Jayesh Interactive Portfolio
 
-A desktop-first software engineering portfolio built as a playable miniature coastal island. Visitors move through the world to discover Work, Studio / Gym, and Learning Loop experiences.
+A software engineering portfolio built as a playable miniature coastal island. Visitors move through the world to discover Work, Studio / Gym, and Learning Loop experiences on desktop or mobile.
 
 **Live site:** [jayeshrajani.vercel.app](https://jayeshrajani.vercel.app)
 
 ## Current Build
 
 - Procedural low-poly island, shoreline, water, paths, trees, rocks, and three landmarks
-- Blocky animated player with WASD and arrow-key controls
+- Blocky animated player with WASD, arrow-key, and analog joystick controls
 - Smooth elevated follow camera and cinematic location transitions
 - Boundary and building collision
-- Proximity-aware doors opened by Enter or click
+- Proximity-aware doors opened by Enter, click, or the contextual mobile action
 - Floating labels identify Work, Studio / Gym, and Learning Loop
 - In-world Work, Studio / Gym, and Learning Loop presentations
+- Linked Instagram profile in the Studio / Gym experience
 - Resume-backed experience, project, education, and contact content
 - Opt-in procedural surf, wind, coastal birds, footsteps, doors, and navigation cues
+- Landscape mobile layout with a portrait rotation gate and safe-area-aware controls
 - Reduced-motion and reduced-transparency fallbacks
 
 ## Run Locally

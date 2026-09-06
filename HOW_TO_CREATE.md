@@ -27,6 +27,7 @@ flowchart TD
     Page[Next.js page.tsx] --> Root[PortfolioExperience]
     Root --> Canvas[R3F Canvas]
     Root --> HUD[PortfolioHud]
+    Root --> Mobile[MobileControls + orientation gate]
     Root --> Overlay[ExperienceOverlay]
     Root --> Loading[LoadingScreen]
 
@@ -82,6 +83,7 @@ src/
       ProjectPresentation.tsx  Individual project case study
     ui/
       PortfolioHud.tsx         Brand, location, sound, and interaction prompt
+      MobileControls.tsx       Touch joystick, action button, and orientation gate
       LoadingScreen.tsx        Initial scene transition
       WebGLFallback.tsx        Canvas fallback
   data/
@@ -105,6 +107,7 @@ public/
 The root layout in `src/app/layout.tsx` provides:
 
 - site metadata
+- safe-area viewport coverage
 - the sans and monospace fonts
 - global CSS
 - the HTML and body shell
@@ -214,13 +217,18 @@ This gives the character a natural sliding response along walls without introduc
 
 `useMovementControls` records pressed WASD and arrow keys in a `Set`. A ref is used instead of React state so key changes do not rerender the application.
 
+For touch devices, `PortfolioExperience` owns a second mutable movement ref. `MobileControls` reports a normalized horizontal and vertical vector through a stable callback, and `Player` combines that vector with the keyboard state. Keeping both input sources in refs avoids React updates during a drag.
+
+The joystick applies a small dead zone, clamps the knob to its circular travel radius, and preserves analog magnitude so a partial drag moves the character more slowly. Pointer capture keeps the gesture active when the finger leaves the joystick, while pointer up, pointer cancel, lost capture, disabled state, and component cleanup all reset movement to zero.
+
 Inside `Player`:
 
 1. The current camera direction is flattened onto the ground plane.
 2. A perpendicular right vector is calculated.
 3. Horizontal and vertical input are combined into a camera-relative direction.
-4. The candidate position is tested against `isWalkable`.
-5. The character rotates toward the movement direction with angular damping.
+4. Analog input magnitude scales the player's speed.
+5. The candidate position is tested against `isWalkable`.
+6. The character rotates toward the movement direction with angular damping.
 
 The character is assembled from primitive meshes under an articulated group hierarchy. Separate refs control the torso, head, arms, upper legs, lower legs, and feet.
 
@@ -263,7 +271,7 @@ A destination opens only when:
 
 - the camera is in `FOLLOW`
 - the player is within the matching interaction radius
-- Enter, Numpad Enter, the HUD prompt, or the active door is used
+- Enter, Numpad Enter, the HUD prompt, the mobile `OPEN` action, or the active door is used
 
 Opening a destination changes the camera to `ENTER`. Once the transition finishes, the mode becomes `EXPERIENCE`, and `ExperienceOverlay` renders the matching panel.
 
@@ -288,7 +296,7 @@ The content comes from `src/data/portfolio.ts`. Contact rows use real links for 
 
 ### Studio / Gym
 
-`StudioExperience` presents athletic competition and community leadership data from `athleteProfile`.
+`StudioExperience` presents athletic competition and community leadership data from `athleteProfile`, plus a direct Instagram profile card sourced from `instagramProfile`. The card links out to the real profile without embedding Instagram or inventing social metrics.
 
 ### Learning Loop
 
@@ -338,6 +346,10 @@ The same DOM sheet remains mounted through launch and landing. This avoids a vis
 - nearby interaction prompt
 - movement instructions
 
+Desktop movement hints are hidden on coarse pointers. In landscape, `MobileControls` places a translucent 112px joystick at the lower left and a contextual `OPEN` button at the lower right. Both use safe-area insets so they clear device cutouts and home indicators.
+
+Portrait touch screens show `MobileOrientationGate` instead of the controls. This is a CSS media-query gate rather than a browser orientation lock, because ordinary web pages cannot reliably force device orientation. Desktop and fine-pointer devices are unaffected.
+
 `LoadingScreen` waits for the Canvas `onCreated` callback, then transitions away. It is a scene-ready indicator, not byte-level asset progress.
 
 `WebGLFallback` is supplied to the Canvas, and a separate `<noscript>` message covers browsers with JavaScript disabled.
@@ -381,6 +393,8 @@ The implementation includes:
 - semantic dialog roles for experience and resume overlays
 - accessible labels on icon controls
 - keyboard interaction with Enter and Escape
+- pointer capture and a labeled touch joystick
+- a dialog-style portrait orientation notice for touch screens
 - `aria-live` status updates
 - visible focus states
 - a WebGL fallback
@@ -416,14 +430,15 @@ A reliable construction order is:
 6. Create the Canvas and static `WorldScene` lighting/fog setup.
 7. Build the extruded island, water, paths, trees, and rocks.
 8. Build each landmark from primitive meshes and add shared doors/signage.
-9. Add camera-relative movement and collision to `Player`.
+9. Add camera-relative keyboard and analog movement plus collision to `Player`.
 10. Add the distance-driven articulated walk cycle.
 11. Implement the camera mode state machine.
 12. Connect proximity, Enter/click interaction, camera transitions, and overlays in `PortfolioExperience`.
 13. Build the Work, Studio/Gym, and Learning Loop HTML experiences.
 14. Add the 3D-to-DOM resume throw only after player and camera behavior are stable.
-15. Add procedural audio, reduced-motion behavior, loading UI, and fallbacks.
-16. Test every path, door, camera target, and overlay at desktop and narrow widths.
+15. Add the landscape touch controls, safe-area spacing, and portrait orientation gate.
+16. Add procedural audio, reduced-motion behavior, loading UI, and fallbacks.
+17. Test every path, door, camera target, and overlay on desktop and a landscape touch viewport.
 
 ## 17. Adding or Moving a Destination
 
@@ -490,6 +505,7 @@ The current architecture is intentionally optimized for one small world:
 - state is in memory; refreshing resets the player and open location
 - the loading screen is not a true asset-progress meter
 - the resume throw depends on the current camera and viewport projection
-- mobile visitors can view the interface, but keyboard movement remains the primary control scheme
+- touch gameplay is intentionally landscape-first; portrait touch screens ask the visitor to rotate
+- orientation is recommended through the UI rather than forcibly locked by the browser
 
-If the island grows substantially, the first systems to revisit should be collision, destination configuration, touch controls, asset loading progress, and automated interaction tests.
+If the island grows substantially, the first systems to revisit should be collision, destination configuration, asset loading progress, and automated interaction tests.

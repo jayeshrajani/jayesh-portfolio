@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import * as THREE from "three";
 
 import { ExperienceOverlay } from "@/components/experiences/ExperienceOverlay";
@@ -9,6 +9,10 @@ import type {
   ResumeThrowOrigin,
   ResumeViewerPhase,
 } from "@/components/experiences/WorkExperience";
+import {
+  MobileControls,
+  MobileOrientationGate,
+} from "@/components/ui/MobileControls";
 import { PortfolioHud } from "@/components/ui/PortfolioHud";
 import { LoadingScreen } from "@/components/ui/LoadingScreen";
 import { WebGLFallback } from "@/components/ui/WebGLFallback";
@@ -23,10 +27,12 @@ import {
   type WorldLocation,
 } from "@/data/world";
 import { useAmbientAudio } from "@/hooks/useAmbientAudio";
+import type { MovementVector } from "@/hooks/useMovementControls";
 import { useReducedMotionPreference } from "@/hooks/useReducedMotionPreference";
 
 export function PortfolioExperience() {
   const playerPosition = useRef(new THREE.Vector3(...WORLD.playerSpawn));
+  const touchMovement = useRef<MovementVector>({ horizontal: 0, vertical: 0 });
   const [worldReady, setWorldReady] = useState(false);
   const [arrivalComplete, setArrivalComplete] = useState(false);
   const [hasMoved, setHasMoved] = useState(false);
@@ -41,6 +47,10 @@ export function PortfolioExperience() {
   );
   const reducedMotion = useReducedMotionPreference();
   const audio = useAmbientAudio();
+
+  const handleTouchMovement = useCallback((horizontal: number, vertical: number) => {
+    touchMovement.current = { horizontal, vertical };
+  }, []);
 
   const handleInteract = (id: ExperienceId) => {
     if (cameraMode !== "FOLLOW" || nearbyInteraction?.id !== id) return;
@@ -138,6 +148,7 @@ export function PortfolioExperience() {
           playerPosition={playerPosition}
           reducedMotion={reducedMotion}
           resumeThrowRequest={resumeThrowRequest}
+          touchMovement={touchMovement}
           onInteract={handleInteract}
           onFirstMove={() => setHasMoved(true)}
           onLocationChange={handleLocationChange}
@@ -159,6 +170,12 @@ export function PortfolioExperience() {
         soundEnabled={audio.enabled}
         worldReady={worldReady}
       />
+      <MobileControls
+        enabled={worldReady && cameraMode === "FOLLOW"}
+        nearbyInteraction={nearbyInteraction}
+        onInteract={handleInteract}
+        onMovementChange={handleTouchMovement}
+      />
       <ExperienceOverlay
         activeExperience={cameraMode === "EXPERIENCE" ? openLocationId : null}
         resumeViewerPhase={resumeViewerPhase}
@@ -169,6 +186,7 @@ export function PortfolioExperience() {
         onResumeClose={() => setResumeViewerPhase("closed")}
       />
       <LoadingScreen ready={worldReady} />
+      <MobileOrientationGate />
 
       <noscript>
         <div className="webgl-fallback">

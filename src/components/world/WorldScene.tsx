@@ -15,6 +15,7 @@ import type {
   InteractionTarget,
   WorldLocation,
 } from "@/data/world";
+import type { MovementVector } from "@/hooks/useMovementControls";
 
 type WorldSceneProps = {
   cameraMode: CameraMode;
@@ -25,6 +26,7 @@ type WorldSceneProps = {
   playerPosition: RefObject<THREE.Vector3>;
   reducedMotion: boolean;
   resumeThrowRequest: number;
+  touchMovement: RefObject<MovementVector>;
   onInteract: (id: ExperienceId) => void;
   onFirstMove: () => void;
   onLocationChange: (location: WorldLocation) => void;
@@ -43,6 +45,7 @@ export function WorldScene({
   playerPosition,
   reducedMotion,
   resumeThrowRequest,
+  touchMovement,
   onInteract,
   onFirstMove,
   onLocationChange,
@@ -84,6 +87,7 @@ export function WorldScene({
         position={playerPosition}
         reducedMotion={reducedMotion}
         resumeThrowRequest={resumeThrowRequest}
+        touchMovement={touchMovement}
         onFirstMove={onFirstMove}
         onLocationChange={onLocationChange}
         onNearbyInteractionChange={onNearbyInteractionChange}

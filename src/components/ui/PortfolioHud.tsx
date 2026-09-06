@@ -87,11 +87,6 @@ export function PortfolioHud({
         <span className="controls-hint__keys">ENTER / CLICK</span>
         <span>OPEN</span>
       </div>
-
-      <div className="desktop-note">
-        <strong>DESKTOP EXPERIENCE</strong>
-        <span>Keyboard controls are coming to smaller screens later.</span>
-      </div>
     </div>
   );
 }

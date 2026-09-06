@@ -1,8 +1,14 @@
 "use client";
 
-import { SoccerBallIcon, TrophyIcon, UsersThreeIcon } from "@phosphor-icons/react";
+import {
+  ArrowSquareOutIcon,
+  InstagramLogoIcon,
+  SoccerBallIcon,
+  TrophyIcon,
+  UsersThreeIcon,
+} from "@phosphor-icons/react";
 
-import { athleteProfile } from "@/data/portfolio";
+import { athleteProfile, instagramProfile } from "@/data/portfolio";
 
 export function StudioExperience() {
   return (
@@ -12,6 +18,32 @@ export function StudioExperience() {
         <h2>Built under pressure.</h2>
         <span>Physique competition, national-level football, and building a stronger fitness community.</span>
       </div>
+
+      <a
+        className="instagram-profile"
+        href={instagramProfile.href}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Open ${instagramProfile.handle} on Instagram`}
+      >
+        <div className="instagram-profile__mark">
+          <InstagramLogoIcon aria-hidden="true" size={28} weight="bold" />
+        </div>
+        <div className="instagram-profile__identity">
+          <span>SOCIAL / INSTAGRAM</span>
+          <strong>{instagramProfile.handle}</strong>
+          <p>{instagramProfile.summary}</p>
+        </div>
+        <div className="instagram-profile__themes" aria-label="Profile themes">
+          {instagramProfile.themes.map((theme) => <span key={theme}>{theme}</span>)}
+        </div>
+        <ArrowSquareOutIcon
+          className="instagram-profile__arrow"
+          aria-hidden="true"
+          size={19}
+          weight="bold"
+        />
+      </a>
 
       <section className="studio-feature">
         <div className="studio-feature__icon">
