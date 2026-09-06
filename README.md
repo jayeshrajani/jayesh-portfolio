@@ -2,6 +2,8 @@
 
 A desktop-first software engineering portfolio built as a playable miniature coastal island. Visitors move through the world to discover Work, Studio / Gym, and Learning Loop experiences.
 
+**Live site:** [jayeshrajani.vercel.app](https://jayeshrajani.vercel.app)
+
 ## Current Build
 
 - Procedural low-poly island, shoreline, water, paths, trees, rocks, and three landmarks
