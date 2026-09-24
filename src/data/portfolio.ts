@@ -5,9 +5,11 @@ export const workExperiences = [
 		dates: "Feb 2025 - Present",
 		location: "Bengaluru, India",
 		highlights: [
-			"Built VRSY (Virtual SRE), combining AI-powered Change and Incident Analysers with RAG, LangChain, semantic search, vector embeddings, and chunked historical data.",
-			"Implemented distributed observability for PRISM with OpenTelemetry, Prometheus, and Grafana for service monitoring, tracing, SLA tracking, and faster incident resolution.",
-			"Built and scaled HackArena with the PERN stack, supporting 1,000+ users across submission, evaluation, and winner-selection workflows.",
+			"Contributed to MANTA, an AI root-cause analysis engine that fuses 4+ signal channels over a ~1,000-node Neo4j dependency graph, correlating related incidents across ServiceNow, Snowflake, BigPanda, and Azure OpenAI to rank probable root causes.",
+			"Worked on ORCA, an explainable change-risk engine combining CAB gates, Azure OpenAI semantic channels, hybrid RAG, and calibrated ML over 6.7M+ change and incident records, delivered as a FastAPI / Next.js POC for 146 users.",
+			"Helped develop PostgreSQL / pgvector hybrid retrieval (vector KNN + full-text + pg_trgm via reciprocal-rank fusion), improving MRR 2.4x over vector-only search on a 195-query benchmark.",
+			"Instrumented services with OpenTelemetry and contributed to Prometheus / Grafana observability for monitoring, tracing, SLA tracking, and faster incident diagnosis.",
+			"Part of the team behind HackArena, an internal PERN-stack hackathon platform supporting 1,000+ users across submission, evaluation, and winner selection.",
 		],
 	},
 	{
@@ -16,15 +18,8 @@ export const workExperiences = [
 		dates: "Oct 2023",
 		location: "Pune, India",
 		highlights: [
-			"Developed the Q-Radar Jira Alert Sync Tool with React, Node.js, Express.js, and MySQL, reducing alert resolution time by 25%.",
+			"Worked on the Q-Radar Jira Alert Sync Tool with React, Node.js, Express.js, and MySQL, helping reduce alert resolution time by 25%.",
 		],
-	},
-	{
-		company: "BioDimension Technology",
-		role: "Product Development Strategist / Content Analyst",
-		dates: null,
-		location: "Vellore, India",
-		highlights: ["Worked across product development strategy and content analysis."],
 	},
 ] as const;
 
@@ -41,7 +36,7 @@ export const skillGroups = [
 	},
 	{
 		label: "WEB DEVELOPMENT",
-		skills: ["React", "Next.js", "Node.js", "Express.js", "MERN / PERN", "Socket.IO"],
+		skills: ["React", "Next.js", "Node.js", "Express.js", "MERN / PERN"],
 	},
 	{
 		label: "CLOUD + DEVOPS",
@@ -59,20 +54,20 @@ export const skillGroups = [
 
 export const athleteProfile = {
 	university: {
-		title: "MR. UNIVERSITY",
+		title: "Mr. University",
 		location: "VIT VELLORE",
 		years: ["2023", "2024"],
-		context: "BACK-TO-BACK TITLE HOLDER",
+		context: "PHYSIQUE COMPETITION",
 	},
 	football: {
-		title: "U19 FOOTBALL NATIONALS",
+		title: "U19 Football Nationals",
 		location: "KOLKATA / 2019",
-		summary: "Competed at the U19 Football Nationals in Kolkata in 2019.",
+		summary: "Played at the U19 Football Nationals in Kolkata.",
 	},
 	club: {
-		title: "FITNESS AND BEYOND CLUB",
-		role: "CHAIRPERSON / LED A 28-MEMBER TEAM",
-		summary: "Built an active campus fitness community through well-run events, partnerships, and regular training initiatives.",
+		title: "Fitness and Beyond Club",
+		role: "CHAIRPERSON",
+		summary: "Worked with a 28-member team on campus fitness events and partnerships, helping grow participation by 130%.",
 	},
 } as const;
 
@@ -93,6 +88,7 @@ export const education = {
 export type Project = {
 	id: string;
 	title: string;
+	status?: "upcoming";
 	description: string;
 	problem: string;
 	solution: string;
@@ -133,10 +129,41 @@ export const projects: readonly Project[] = [
 	},
 ];
 
+export const upcomingProjects: readonly Project[] = [
+	{
+		id: "driftcue",
+		title: "DriftCue",
+		status: "upcoming",
+		description: "AI-driven music curation for adaptive listening sessions.",
+		problem: "Choose the next track from session context, track metadata, and user interaction signals while staying resilient when AI availability degrades.",
+		solution: "Built a mock-first provider and decision-engine architecture with SoundCloud OAuth, fallback logic, and real-time session analytics for energy, mode, exploration, and recommendation probabilities.",
+		technology: "Next.js, React, TypeScript, Zustand, SoundCloud OAuth",
+		architecture: "SoundCloud provider -> session state -> pluggable decision engine -> responsive playback UI",
+		result: "Created an extensible foundation for secure music integrations and adaptive recommendation flows.",
+		href: "https://github.com/jayeshrajani",
+		banner: "/project-banners/driftcue.png",
+		bannerAlt: "A session energy curve over a track waveform with next-track recommendation probabilities.",
+	},
+	{
+		id: "creatorlens",
+		title: "CreatorLens",
+		status: "upcoming",
+		description: "Retrieval and analytics platform for YouTube creators.",
+		problem: "Turn creator content, audience comments, retention curves, and channel history into recommendations that are searchable, explainable, and measurable.",
+		solution: "Built pure scoring-based recommendations, a tunable BM25 index, hybrid retrieval with Reciprocal Rank Fusion, pgvector embeddings, an offline clustering worker, and threshold-driven retention signal detection. An optional LLM only rewords results.",
+		technology: "Next.js 15, TypeScript, PostgreSQL, pgvector, Python, scikit-learn, sentence-transformers, Drizzle ORM",
+		architecture: "YouTube OAuth sync -> Postgres / pgvector -> BM25 + semantic retrieval -> explainable scoring and analytics",
+		result: "Covered the system with 196 TypeScript tests and 39 Python tests, including ranking evaluation and no-LLM fallback paths.",
+		href: "https://github.com/jayeshrajani",
+		banner: "/project-banners/creatorlens.png",
+		bannerAlt: "Ranked creator insights fused from BM25 and vector search results.",
+	},
+];
+
 export const contactDetails = [
 	{ label: "EMAIL", value: "rajani.jass@gmail.com", href: "mailto:rajani.jass@gmail.com" },
 	{ label: "PHONE", value: "+91 99933 74777", href: "tel:+919993374777" },
 	{ label: "LOCATION", value: "Bengaluru, India" },
-	{ label: "LINKEDIN", value: "jayesh-rajani-010a08225", href: "https://www.linkedin.com/in/jayesh-rajani-010a08225/" },
+	{ label: "LINKEDIN", value: "jayesh-rajani", href: "https://www.linkedin.com/in/jayesh-rajani/" },
 	{ label: "GITHUB", value: "github.com/jayeshrajani", href: "https://github.com/jayeshrajani" },
 ] as const;

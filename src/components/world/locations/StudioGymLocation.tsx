@@ -91,14 +91,15 @@ export function StudioGymLocation({
           <meshStandardMaterial color={COLORS.charcoal} roughness={0.96} />
         </mesh>
 
-        <mesh position={[0, 0.53, -1.08]} castShadow receiveShadow>
+        {/* Low enough that the player's feet reach the floor while benching. */}
+        <mesh position={[0, 0.41, -1.08]} castShadow receiveShadow>
           <boxGeometry args={[0.98, 0.2, 2.05]} />
           <meshStandardMaterial color={COLORS.accent} roughness={0.82} />
         </mesh>
 
         {[-0.36, 0.36].map((offsetX) => (
-          <mesh key={offsetX} position={[offsetX, 0.29, -1.08]} castShadow>
-            <boxGeometry args={[0.13, 0.52, 1.5]} />
+          <mesh key={offsetX} position={[offsetX, 0.18, -1.08]} castShadow>
+            <boxGeometry args={[0.13, 0.3, 1.5]} />
             <meshStandardMaterial color={COLORS.concreteLight} roughness={0.72} />
           </mesh>
         ))}

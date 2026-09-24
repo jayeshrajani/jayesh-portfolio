@@ -3,11 +3,13 @@
 import { useState } from "react";
 
 import { ProjectPresentation } from "@/components/experiences/ProjectPresentation";
-import { education, projects } from "@/data/portfolio";
+import { education, projects, upcomingProjects } from "@/data/portfolio";
+
+const allProjects = [...projects, ...upcomingProjects];
 
 export function CollegeExperience() {
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
-  const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? projects[0];
+  const [selectedProjectId, setSelectedProjectId] = useState(allProjects[0].id);
+  const selectedProject = allProjects.find((project) => project.id === selectedProjectId) ?? allProjects[0];
 
   return (
     <div className="experience-layout college-experience">
@@ -38,7 +40,7 @@ export function CollegeExperience() {
 
       <div className="project-browser">
         <div className="project-selector" role="tablist" aria-label="Projects">
-          {projects.map((project, index) => (
+          {allProjects.map((project, index) => (
             <button
               key={project.id}
               type="button"
@@ -46,7 +48,7 @@ export function CollegeExperience() {
               aria-selected={selectedProject.id === project.id}
               onClick={() => setSelectedProjectId(project.id)}
             >
-              <span>{String(index + 1).padStart(2, "0")}</span>
+              <span>{project.status === "upcoming" ? "UP" : String(index + 1).padStart(2, "0")}</span>
               {project.title}
             </button>
           ))}

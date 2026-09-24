@@ -22,6 +22,7 @@ import {
   contactDetails,
   education,
   projects,
+  upcomingProjects,
   resumePath,
   skillGroups,
   workExperiences,
@@ -213,7 +214,7 @@ function ResumeView({ active, onThrow }: ResumeViewProps) {
         </div>
         <div>
           <span>PROJECTS</span>
-          <strong>{projects.length} selected project case studies</strong>
+          <strong>{projects.length} selected case studies / {upcomingProjects.length} upcoming builds</strong>
         </div>
         <a className="primary-action" href={resumePath} download>
           <DownloadSimpleIcon aria-hidden="true" size={17} weight="bold" />
@@ -295,8 +296,8 @@ export function WorkExperience({
       <div className="experience-layout">
         <div className="experience-intro">
           <p>WORK</p>
-          <h2>Engineering systems that hold up.</h2>
-          <span>Production AI, observability, and web platforms built for measurable outcomes.</span>
+          <h2>Learning by shipping real systems.</h2>
+          <span>Contributing to production AI, observability, and web platforms alongside great teams.</span>
         </div>
 
         <div className="experience-tabs" role="tablist" aria-label="Work sections">

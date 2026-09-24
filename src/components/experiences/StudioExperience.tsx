@@ -15,8 +15,8 @@ export function StudioExperience() {
     <div className="experience-layout studio-experience">
       <div className="experience-intro">
         <p>STUDIO / GYM</p>
-        <h2>Built under pressure.</h2>
-        <span>Physique competition, national-level football, and building a stronger fitness community.</span>
+        <h2>Outside of work.</h2>
+        <span>Training, football, and a campus fitness community I enjoyed being part of.</span>
       </div>
 
       <a
@@ -47,16 +47,16 @@ export function StudioExperience() {
 
       <section className="studio-feature">
         <div className="studio-feature__icon">
-          <TrophyIcon aria-hidden="true" size={34} weight="fill" />
+          <TrophyIcon aria-hidden="true" size={24} weight="duotone" />
         </div>
         <div className="studio-feature__title">
           <span>{athleteProfile.university.context}</span>
           <h3>{athleteProfile.university.title}</h3>
           <p>{athleteProfile.university.location}</p>
         </div>
-        <div className="studio-feature__years" aria-label="Winning years 2023 and 2024">
+        <div className="studio-feature__years" aria-label="2023 and 2024">
           <strong>{athleteProfile.university.years[0]}</strong>
-          <i>+</i>
+          <i>&amp;</i>
           <strong>{athleteProfile.university.years[1]}</strong>
         </div>
       </section>
